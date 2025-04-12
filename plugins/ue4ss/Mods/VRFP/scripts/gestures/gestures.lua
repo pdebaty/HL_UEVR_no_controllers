@@ -199,6 +199,8 @@ local function castSpellByName(pawn, spellName)
 									print("Tool activated",tool:get_full_name(),"\n")
 									delay(3000, function()
 										currentTool:EndItemUsage()
+										--pawn:RevertSpeedMode()
+										--pawn:SetSpeedMode()
 										print("Tool usage ended",currentTool:get_full_name(),"\n")
 									end)
 								else

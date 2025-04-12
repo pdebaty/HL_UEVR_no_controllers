@@ -9,6 +9,7 @@ local meshComponent = nil
 local wandTipOffset = 30.0
 local isWandHolstered = false
 local maxRetries = 10
+local isDebug = true
 
 function M.isConnected()
 	return meshComponent ~= nil
@@ -219,6 +220,84 @@ function M.handleInput(pawn, state, isLeftHanded)
 		triggerOn = false
 	end
 end
+
+local g_shoulderGripOn = false
+function M.handleBrokenWand(pawn, state, isLeftHanded)
+	local gripButton = XINPUT_GAMEPAD_RIGHT_SHOULDER
+	if isLeftHanded then
+		gripButton = XINPUT_GAMEPAD_LEFT_SHOULDER
+	end
+	if not g_shoulderGripOn and uevrUtils.isButtonPressed(state, gripButton)  then
+		g_shoulderGripOn = true
+		local headLocation = controllers.getControllerLocation(2)
+		local handLocation = controllers.getControllerLocation(isLeftHanded and 0 or 1)
+		if headLocation ~= nil and handLocation ~= nil then
+			local distance = kismet_math_library:Vector_Distance(headLocation, handLocation)
+			--print(distance,"\n")
+			if distance < 30 then	
+				M.connectAltWand(pawn, isLeftHanded and 0 or 1)
+			end
+		end
+	elseif g_shoulderGripOn and uevrUtils.isButtonNotPressed(state, gripButton) then
+		delay(1000, function()
+			g_shoulderGripOn = false
+		end)
+	end
+
+end
+
+function M.registerHooks()	
+	if isDebug then
+		RegisterHook("/Game/Gameplay/ToolSet/Items/Wand/BP_WandTool.BP_WandTool_C:SetWandStyle", function(self, name)
+			print("SetWandStyle called ",name:get():ToString(),"\n")
+		end)
+
+		RegisterHook("/Script/Phoenix.WandTool:OnActiveSpellToolChanged", function(self, ActivatedSpell, DeactivatedSpell)
+			print("OnActiveSpellToolChanged called\n")
+			local activatedTool = ActivatedSpell ~= nil and ActivatedSpell:get() or nil
+			local deactivatedTool = DeactivatedSpell ~= nil and DeactivatedSpell:get() or nil
+			if deactivatedTool ~= nil then
+				print("Deactivated", deactivatedTool:GetFullName(),"\n")
+			end
+			if activatedTool ~= nil then
+				print("Activated", activatedTool:GetFullName(),"\n")
+			end
+		end)
+	end
+end
+
+function M.registerLateHooks()
+	if isDebug then
+		RegisterHook("/Game/Gameplay/ToolSet/Items/Wand/BP_WandTool.BP_WandTool_C:ResetLightCombo", function(self)
+			print("ResetLightCombo called\n")
+		end)
+		
+		RegisterHook("/Game/Gameplay/ToolSet/Items/Wand/BP_WandTool.BP_WandTool_C:HeavyComboTimerExpired", function(self)
+			print("HeavyComboTimerExpired called\n")
+		end)
+
+		RegisterHook("/Game/Gameplay/ToolSet/Items/Wand/BP_WandTool.BP_WandTool_C:ComboTimerExpired", function(self)
+			print("ComboTimerExpired called\n")
+		end)
+
+		RegisterHook("/Game/Gameplay/ToolSet/Items/Wand/BP_WandTool.BP_WandTool_C:CancelComboSplitTimer", function(self)
+			print("ComboTimerExpired called\n")
+		end)
+
+		RegisterHook("/Game/Gameplay/ToolSet/Items/Wand/BP_WandTool.BP_WandTool_C:StartHeavyComboSplitTimer", function(self, ComboSplitData)
+			print("StartHeavyComboSplitTimer called\n")
+			local splitTimer = ComboSplitData ~= nil and ComboSplitData:get() or nil
+			if splitTimer ~= nil then
+				print(splitTimer.SplitFrame, splitTimer.TimeOutFrame, splitTimer.SplitToAbilityBeforeFrame:GetFullName(), splitTimer.SplitToAbilityAfterFrame:GetFullName(), "\n")
+			end
+		end)
+
+		RegisterHook("/Game/Gameplay/ToolSet/Items/Wand/BP_WandTool.BP_WandTool_C:StartComboSplitTimer", function(self, ComboSplitData)
+			print("StartComboSplitTimer called\n")
+		end)
+	end
+end
+
 local g_lastPosition = nil
 function M.debugWand(pawn)
 	if pawn ~= nil then --and pawn.EquipWand ~= nil then

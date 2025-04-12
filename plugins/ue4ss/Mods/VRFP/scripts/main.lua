@@ -330,6 +330,20 @@ function preGameStateCheck()
 	g_isPregame = uiManager ~= nil and UEVR_UObjectHook.exists(uiManager) and uiManager.IsInPreGameplayState ~= nil and uiManager:IsInPreGameplayState()
 end
 
+function inPauseMode()
+	if uiManager == nil then 
+		uiManager = uevrUtils.find_first_of("Class /Script/Phoenix.UIManager") 
+	end
+	return uevrUtils.validate_object(uiManager) ~= nil and uiManager.InPauseMode ~= nil and uiManager:InPauseMode()
+end
+
+function inMenuMode()
+	if uiManager == nil then 
+		uiManager = uevrUtils.find_first_of("Class /Script/Phoenix.UIManager") 
+	end
+	return uevrUtils.validate_object(uiManager) ~= nil and uiManager.GetIsUIShown ~= nil and uiManager:GetIsUIShown()
+end
+
 function solveAstronomyMinigame()
 	pawn:CHEAT_SolveMinigame()
 end
@@ -433,26 +447,6 @@ function getSpellNameFromFileName(fileName)
 	return name
 end
 
-local g_shoulderGripOn = false
-function handleBrokenWand(state)
-	local gripButton = XINPUT_GAMEPAD_RIGHT_SHOULDER
-	if isLeftHanded then
-		gripButton = XINPUT_GAMEPAD_LEFT_SHOULDER
-	end
-	if not g_shoulderGripOn and uevrUtils.isButtonPressed(state, gripButton)  then
-		g_shoulderGripOn = true
-		local distance = kismet_math_library:Vector_Distance(controllers.getControllerLocation(2),controllers.getControllerLocation(g_isLeftHanded and 0 or 1))
-		--print(distance,"\n")
-		if distance < 30 then	
-			wand.connectAltWand(mounts.getMountPawn(pawn), g_isLeftHanded and 0 or 1)
-		end
-	elseif g_shoulderGripOn and uevrUtils.isButtonNotPressed(state, gripButton) then
-		delay(1000, function()
-			g_shoulderGripOn = false
-		end)
-	end
-
-end
 	
 
 local g_lastTabIndex = nil
@@ -538,11 +532,12 @@ function on_pre_engine_tick(engine, delta)
 	if newLocomotionMode ~= nil then 
 		setLocomotionMode(newLocomotionMode)
 	end
+	
+	isInMenu = inMenuMode()
 		
 	lastWandTargetLocation, lastWandTargetDirection, lastWandPosition = wand.getWandTargetLocationAndDirection(useCrossHair and not g_isPregame)
 
-	if isFP and not isInCinematic and uevrUtils.validate_object(pawn) ~= nil  then
-			
+	if isFP and not isInCinematic and uevrUtils.validate_object(pawn) ~= nil then			
 		if gestureMode == 1 and (not (g_isPregame or isInMenu or isInCinematic or not mounts.isWalking())) then
 			--print("Is wand equipped",pawn:IsWandEquipped(),"\n")
 			gesturesModule.handleGestures(pawn, gestureMode, lastWandTargetDirection, lastWandPosition, delta)
@@ -565,11 +560,9 @@ function on_pre_engine_tick(engine, delta)
 
 end
 
-
 --callback for on_post_calculate_stereo_view_offset
 function on_post_calculate_stereo_view_offset(device, view_index, world_to_meters, position, rotation, is_double)
 	if view_index == 1 then
-		-- lastHMDDirection = rotationToDirection(rotation)
 		lastHMDDirection = kismet_math_library:GetForwardVector(rotation)
 		if lastHMDDirection.Y ~= lastHMDDirection.Y then
 			print("NAN error",rotation.x, rotation.y, rotation.z,"\n")
@@ -582,8 +575,8 @@ end
 	
 function on_xinput_get_state(retval, user_index, state)
 	if isFP and not isInCinematic then
-		local inMenu = g_isPregame or Statics:IsGamePaused(uevrUtils.get_world()) or isInMenu or isInCinematic or mounts.isOnBroom() or (gestureMode == 1 and gesturesModule.isCastingSpell(pawn, "Spell_Wingardium"))
-		decoupledYawCurrentRot = input.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, locomotionMode, controlMode, g_isLeftHanded, snapAngle, useSnapTurn, alphaDiff, inMenu)
+		local disableStickOverride = g_isPregame or isInMenu or isInCinematic or mounts.isOnBroom() or (gestureMode == 1 and gesturesModule.isCastingSpell(pawn, "Spell_Wingardium"))
+		decoupledYawCurrentRot = input.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, locomotionMode, controlMode, g_isLeftHanded, snapAngle, useSnapTurn, alphaDiff, disableStickOverride)
 		
 		if gestureMode == 1 then
 			gesturesModule.handleInput(state, g_isLeftHanded)
@@ -593,7 +586,7 @@ function on_xinput_get_state(retval, user_index, state)
 			wand.handleInput(pawn, state, g_isLeftHanded)
 		end
 		
-		handleBrokenWand(state)		
+		wand.handleBrokenWand(mounts.getMountPawn(pawn), state, g_isLeftHanded)		
 	end
 end
 
@@ -692,54 +685,9 @@ function hookLateFunctions()
 		RegisterHook("/Game/Pawn/Player/BP_Biped_Player.BP_Biped_Player_C:ReceiveBeginPlay", function(self)
 			print("ReceiveBeginPlay called\n")
 		end)
-		
-		RegisterHook("/Game/Gameplay/ToolSet/Items/Wand/BP_WandTool.BP_WandTool_C:SetWandStyle", function(self, name)
-			print("SetWandStyle called ",name:get():ToString(),"\n")
-		end)
-		
-		local debugSpells = false
-		if debugSpells then
-			RegisterHook("/Game/Gameplay/ToolSet/Items/Wand/BP_WandTool.BP_WandTool_C:ResetLightCombo", function(self)
-				print("ResetLightCombo called\n")
-			end)
-			
-			RegisterHook("/Game/Gameplay/ToolSet/Items/Wand/BP_WandTool.BP_WandTool_C:HeavyComboTimerExpired", function(self)
-				print("HeavyComboTimerExpired called\n")
-			end)
-
-			RegisterHook("/Game/Gameplay/ToolSet/Items/Wand/BP_WandTool.BP_WandTool_C:ComboTimerExpired", function(self)
-				print("ComboTimerExpired called\n")
-			end)
-
-			RegisterHook("/Game/Gameplay/ToolSet/Items/Wand/BP_WandTool.BP_WandTool_C:CancelComboSplitTimer", function(self)
-				print("ComboTimerExpired called\n")
-			end)
-
-			RegisterHook("/Game/Gameplay/ToolSet/Items/Wand/BP_WandTool.BP_WandTool_C:StartHeavyComboSplitTimer", function(self, ComboSplitData)
-				print("StartHeavyComboSplitTimer called\n")
-				local splitTimer = ComboSplitData ~= nil and ComboSplitData:get() or nil
-				if splitTimer ~= nil then
-					print(splitTimer.SplitFrame, splitTimer.TimeOutFrame, splitTimer.SplitToAbilityBeforeFrame:GetFullName(), splitTimer.SplitToAbilityAfterFrame:GetFullName(), "\n")
-				end
-			end)
-
-			RegisterHook("/Game/Gameplay/ToolSet/Items/Wand/BP_WandTool.BP_WandTool_C:StartComboSplitTimer", function(self, ComboSplitData)
-				print("StartComboSplitTimer called\n")
-			end)
-		end
-		-- --only hook the EULA if we are in the intro screen
-		-- local lvlScriptActor = UEHelpers.GetPersistentLevel().LevelScriptActor
-		-- local levelName = ""
-		-- if lvlScriptActor ~= nil then levelName = lvlScriptActor:GetFullName() end
-		-- print("hookLateFunctions Level script Actor name",levelName,"\n")
-		-- if levelName == "RootLevel_C /Game/Levels/RootLevel.RootLevel:PersistentLevel.RootLevel_C_2" then
-			-- RegisterHook("/Game/UI/HYDRA/UI_BP_EULA.UI_BP_EULA_C:AcceptClicked", function(self)
-				-- print("UI_BP_EULA.UI_BP_EULA_C:AcceptClicked called\n")
-				-- g_eulaClicked = true
 				
-			-- end)			
-		-- end
-		
+		wand.registerLateHooks()
+				
 		if g_isPregame then
 			RegisterHook("/Game/UI/HYDRA/UI_BP_EULA.UI_BP_EULA_C:AcceptClicked", function(self)
 				print("UI_BP_EULA.UI_BP_EULA_C:AcceptClicked called\n")
@@ -758,6 +706,8 @@ function hookLateFunctions()
 
 end
 
+wand.registerHooks()
+
 RegisterHook("/Script/Engine.PlayerController:ClientRestart", function(self, NewPawn)
    	print("ClientRestart called\n")
 	g_isShowingStartPageIntro = false
@@ -774,19 +724,12 @@ RegisterHook("/Script/Phoenix.Biped_Character:GetTargetDestination", function(se
 	end
 end)
 
-RegisterHook("/Script/Phoenix.WandTool:OnActiveSpellToolChanged", function(self, ActivatedSpell, DeactivatedSpell)
-	print("OnActiveSpellToolChanged called\n")
-	local activatedTool = ActivatedSpell ~= nil and ActivatedSpell:get() or nil
-	local deactivatedTool = DeactivatedSpell ~= nil and DeactivatedSpell:get() or nil
-	if deactivatedTool ~= nil then
-		print("Deactivated", deactivatedTool:GetFullName(),"\n")
-	end
-	if activatedTool ~= nil then
-		print("Activated", activatedTool:GetFullName(),"\n")
-	end
-end)
 
 --called when X is pressed
+RegisterHook("/Script/Phoenix.Biped_Player:PauseMenuStart", function(self)	
+	print("PauseMenuStart\n")
+end)
+
 RegisterHook("/Script/Phoenix.Biped_Player:InteractingWithActor", function(self)	
 	print("InteractingWithActor\n")
 end)
@@ -796,7 +739,6 @@ RegisterHook("/Script/Phoenix.UIManager:FieldGuideMenuStart", function(self)
 	print("UIManager:FieldGuideMenuStart\n")
 	uevrUtils.fadeCamera(1.0)
 	enableVRCameraOffset = true
-	isInMenu = true
 	disableDecoupledYaw(true)
 end)
 
@@ -804,7 +746,6 @@ end)
 RegisterHook("/Script/Phoenix.UIManager:IsDirectlyEnteringSubMenu", function(self)	
 	print("UIManager:IsDirectlyEnteringSubMenu\n")
 	enableVRCameraOffset = true
-	isInMenu = true
 	disableDecoupledYaw(true)
 end) 
 
@@ -815,7 +756,6 @@ RegisterHook("/Script/Phoenix.UIManager:ExitFieldGuideWithReason", function(self
 	uevrUtils.set_2D_mode(false)
 	setLocomotionMode(locomotionMode)
 	enableVRCameraOffset = true
-	isInMenu = false
 end)
 
 RegisterHook("/Script/Phoenix.UIManager:MissionFailScreenLoaded", function(self)	
@@ -1102,6 +1042,8 @@ RegisterKeyBind(Key.F2, function()
     pawn:IsControlled(),
     pawn:IsBotControlled(),
 	Statics:IsGamePaused(uevrUtils.get_world()),
+	uiManager:InPauseMode(),
+	uiManager:GetIsUIShown(),
 	"\n")
 
 	-- ExecuteInGameThread( function()
