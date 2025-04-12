@@ -582,7 +582,7 @@ end
 	
 function on_xinput_get_state(retval, user_index, state)
 	if isFP and not isInCinematic then
-		local inMenu = g_isPregame or isInMenu or isInCinematic or mounts.isOnBroom() or (gestureMode == 1 and gesturesModule.isCastingSpell(pawn, "Spell_Wingardium"))
+		local inMenu = g_isPregame or Statics:IsGamePaused(uevrUtils.get_world()) or isInMenu or isInCinematic or mounts.isOnBroom() or (gestureMode == 1 and gesturesModule.isCastingSpell(pawn, "Spell_Wingardium"))
 		decoupledYawCurrentRot = input.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, locomotionMode, controlMode, g_isLeftHanded, snapAngle, useSnapTurn, alphaDiff, inMenu)
 		
 		if gestureMode == 1 then
@@ -696,7 +696,37 @@ function hookLateFunctions()
 		RegisterHook("/Game/Gameplay/ToolSet/Items/Wand/BP_WandTool.BP_WandTool_C:SetWandStyle", function(self, name)
 			print("SetWandStyle called ",name:get():ToString(),"\n")
 		end)
+		
+		local debugSpells = false
+		if debugSpells then
+			RegisterHook("/Game/Gameplay/ToolSet/Items/Wand/BP_WandTool.BP_WandTool_C:ResetLightCombo", function(self)
+				print("ResetLightCombo called\n")
+			end)
+			
+			RegisterHook("/Game/Gameplay/ToolSet/Items/Wand/BP_WandTool.BP_WandTool_C:HeavyComboTimerExpired", function(self)
+				print("HeavyComboTimerExpired called\n")
+			end)
 
+			RegisterHook("/Game/Gameplay/ToolSet/Items/Wand/BP_WandTool.BP_WandTool_C:ComboTimerExpired", function(self)
+				print("ComboTimerExpired called\n")
+			end)
+
+			RegisterHook("/Game/Gameplay/ToolSet/Items/Wand/BP_WandTool.BP_WandTool_C:CancelComboSplitTimer", function(self)
+				print("ComboTimerExpired called\n")
+			end)
+
+			RegisterHook("/Game/Gameplay/ToolSet/Items/Wand/BP_WandTool.BP_WandTool_C:StartHeavyComboSplitTimer", function(self, ComboSplitData)
+				print("StartHeavyComboSplitTimer called\n")
+				local splitTimer = ComboSplitData ~= nil and ComboSplitData:get() or nil
+				if splitTimer ~= nil then
+					print(splitTimer.SplitFrame, splitTimer.TimeOutFrame, splitTimer.SplitToAbilityBeforeFrame:GetFullName(), splitTimer.SplitToAbilityAfterFrame:GetFullName(), "\n")
+				end
+			end)
+
+			RegisterHook("/Game/Gameplay/ToolSet/Items/Wand/BP_WandTool.BP_WandTool_C:StartComboSplitTimer", function(self, ComboSplitData)
+				print("StartComboSplitTimer called\n")
+			end)
+		end
 		-- --only hook the EULA if we are in the intro screen
 		-- local lvlScriptActor = UEHelpers.GetPersistentLevel().LevelScriptActor
 		-- local levelName = ""
@@ -741,6 +771,18 @@ RegisterHook("/Script/Phoenix.Biped_Character:GetTargetDestination", function(se
 			return target 
 		end
 		return {X=0,Y=0,Z=0}
+	end
+end)
+
+RegisterHook("/Script/Phoenix.WandTool:OnActiveSpellToolChanged", function(self, ActivatedSpell, DeactivatedSpell)
+	print("OnActiveSpellToolChanged called\n")
+	local activatedTool = ActivatedSpell ~= nil and ActivatedSpell:get() or nil
+	local deactivatedTool = DeactivatedSpell ~= nil and DeactivatedSpell:get() or nil
+	if deactivatedTool ~= nil then
+		print("Deactivated", deactivatedTool:GetFullName(),"\n")
+	end
+	if activatedTool ~= nil then
+		print("Activated", activatedTool:GetFullName(),"\n")
 	end
 end)
 
@@ -1052,6 +1094,16 @@ local inNativeMode = true
 RegisterKeyBind(Key.F2, function()
     print("F2 pressed\n")
 	
+	print(
+	pawn:IsPlayerControlled(),
+    pawn:IsPawnControlled(),
+    pawn:IsMoveInputIgnored(),
+    pawn:IsLocallyControlled(),
+    pawn:IsControlled(),
+    pawn:IsBotControlled(),
+	Statics:IsGamePaused(uevrUtils.get_world()),
+	"\n")
+
 	-- ExecuteInGameThread( function()
 		-- print("1\n")
 		-- connectCube(1)
@@ -1063,11 +1115,11 @@ RegisterKeyBind(Key.F2, function()
 	--wand.debugWand(pawn)
 	--altConnectWandToController(isLeftHanded)
 	
-	local DevMenu = FindFirstOf("UI_BP_FrontEnd_Menu_C")
+	-- local DevMenu = FindFirstOf("UI_BP_FrontEnd_Menu_C")
 
-	if DevMenu:IsValid() then
-		DevMenu:DevMenuButton()
-	end
+	-- if DevMenu:IsValid() then
+		-- DevMenu:DevMenuButton()
+	-- end
 
 	-- inNativeMode = not inNativeMode
 	-- if inNativeMode then

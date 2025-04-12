@@ -35,6 +35,7 @@ function M.connect(pawn, hand)
 				uevrUtils.set_component_relative_transform(meshComponent, nil, {Pitch=-85, Yaw=0, Roll=0})		
 			else
 				uevrUtils.print("Mesh is not valid in wand connect")
+				meshComponent = nil
 			end
 		else
 			uevrUtils.print("Wand is not valid in wand connect")

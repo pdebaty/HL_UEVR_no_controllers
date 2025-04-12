@@ -141,26 +141,26 @@ local function castSpellByName(pawn, spellName)
 							local isUnlocked = isSpellAvailable(spellToolRecord) --spellManager:IsUnlocked(spellToolRecord.LookupName)
 							uevrUtils.print(lookupName .. " is unlocked: " .. (isUnlocked and "true" or "false"))
 							if isUnlocked then
-								local spellTool = wand:ActivateSpellTool(spellToolRecord, true)
-								if spellTool ~= nil then
-									wand:ResetLightCombo()
-									wand:StartHeavyComboSplitTimer(wand.HeavyComboSplitData)
-									uevrUtils.print(lookupName .. " spell tool is active")
-									wand:CastSpell(spellTool, true)
-									uevrUtils.print("Casting spell complete")
-									currentFlickSpell = spellTool
-									wand:HeavyComboTimerExpired()
-								else
-									uevrUtils.print(lookupName .. " spell tool is not active")
-								end
-								--try this
-								-- wand:CancelCurrentSpell()
-								-- local spellTool = wand:ActivateSpellTool(spellToolRecord, false)
+								-- local spellTool = wand:ActivateSpellTool(spellToolRecord, true)
 								-- if spellTool ~= nil then
-									-- wand:CastActiveSpell()
-									-- --print("Casting spell complete","\n")
+									-- --wand:ResetLightCombo()
+									-- --wand:StartHeavyComboSplitTimer(wand.HeavyComboSplitData)
+									-- uevrUtils.print(lookupName .. " spell tool is active")
+									-- wand:CastSpell(spellTool, true)
+									-- uevrUtils.print("Casting spell complete")
 									-- currentFlickSpell = spellTool
+									-- --wand:HeavyComboTimerExpired()
+								-- else
+									-- uevrUtils.print(lookupName .. " spell tool is not active")
 								-- end
+								--try this
+								wand:CancelCurrentSpell()
+								local spellTool = wand:ActivateSpellTool(spellToolRecord, false)
+								if spellTool ~= nil then
+									wand:CastActiveSpell()
+									--print("Casting spell complete","\n")
+									currentFlickSpell = spellTool
+								end
 								break
 							end
 						end
@@ -397,6 +397,7 @@ function M.handleGestures(pawn, gestureMode, lastWandTargetDirection, lastWandPo
 			
 			if gestureID ~= "" then
 				local spellName = glyphToSpellNameMap[gestureID]
+				if spellName == "Spell_Transformation" then spellName = "Spell_TransformationOverland" end
 				scheduledSpell = {name = spellName, keepActive = true, timeout = 0.2}
 				
 				-- if gestureID == "CMIRROR" then
