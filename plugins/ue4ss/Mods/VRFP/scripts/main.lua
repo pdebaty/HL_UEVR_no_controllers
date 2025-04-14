@@ -944,6 +944,37 @@ function overrideCharacterOpacity()
 	end
 end
 
+function getBoneSpaceLocalRotator(component, boneFName, boneSpace)
+	if component ~= nil and boneFName ~= nil then
+		if boneSpace == nil then boneSpace = 0 end
+		local pTransform = component:GetBoneTransformByName(component:GetParentBone(boneFName), boneSpace)
+		local wTranform = component:GetBoneTransformByName(boneFName, boneSpace)
+		local localTransform = kismet_math_library:ComposeTransforms(wTranform, kismet_math_library:InvertTransform(pTransform))
+		local localRotator = uevrUtils.rotator(0, 0, 0)
+		kismet_math_library:BreakTransform(localTransform,temp_vec3, localRotator, temp_vec3)
+		return localRotator, pTransform
+	end
+	return nil, nil
+end
+--if you know the parent transform then pass it in to save a step
+function setBoneSpaceLocalRotator(component, boneFName, localRotator, boneSpace, pTransform)
+	if component ~= nil and boneFName ~= nil then
+		if boneSpace == nil then boneSpace = 0 end
+		if pTransform == nil then pTransform = component:GetBoneTransformByName(component:GetParentBone(boneFName), boneSpace) end
+		local wRotator = kismet_math_library:TransformRotation(pTransform, localRotator);
+		component:SetBoneRotationByName(boneFName, wRotator, boneSpace)
+	end
+end
+
+function setBoneSpaceLocalTransform(component, boneFName, localTransform, boneSpace, pTransform)
+	if component ~= nil and boneFName ~= nil then
+		if boneSpace == nil then boneSpace = 0 end
+		if pTransform == nil then pTransform = component:GetBoneTransformByName(component:GetParentBone(boneFName), boneSpace) end
+		local wTransform = kismet_math_library:ComposeTransforms(localTransform, pTransform)
+		component:SetBoneTransformByName(boneFName, wTransform, boneSpace)
+	end
+end
+
 function getChildSkeletalMeshComponent(parent, name)
 	local skeletalMeshComponent = nil
 	local children = parent.AttachChildren
@@ -961,7 +992,7 @@ function createPoseableComponent(skeletalMeshComponent)
 		poseableComponent = uevrUtils.createPoseableMeshFromSkeletalMesh(skeletalMeshComponent)
 		--poseableComponent:K2_AttachTo(vrBody, uevrUtils.fname_from_string(""), 0, false)
 		controllers.attachComponentToController(1, poseableComponent)
-		uevrUtils.set_component_relative_transform(poseableComponent, {X=0, Y=0, Z=-100}, {Pitch=0, Yaw=-90, Roll=0})		
+		uevrUtils.set_component_relative_transform(poseableComponent, {X=0, Y=0, Z=0}, {Pitch=0, Yaw=-90, Roll=0})		
 		poseableComponent:SetVisibility(false, true)
 		poseableComponent:SetHiddenInGame(true, true)
 		--delay(1000, function() 
@@ -970,6 +1001,12 @@ function createPoseableComponent(skeletalMeshComponent)
 		--end)
 		--poseableComponent:SetHiddenInGame(false,true)
 		--skeletalMeshComponent:SetMasterPoseComponent(poseableComponent, true)
+		--poseableComponent.bUseAttachParentBound = true
+		
+		--fixes flickering but > 1 causes a pefromance hit with dynamic shadows
+		poseableComponent.BoundsScale = 8.0
+		poseableComponent.bCastDynamicShadow=false
+		
 		delay(500,function()
 			local materials = skeletalMeshComponent:GetMaterials()
 			uevrUtils.print("Found " .. #materials .. " materials on skeletalMeshComponent")
@@ -980,22 +1017,53 @@ function createPoseableComponent(skeletalMeshComponent)
 	else
 		print("SkeletalMeshComponent was not valid\n")
 	end
+	updatePoseableComponent(poseableComponent)
 	return poseableComponent
 end
 
+local boneVisualizers = {}
+function createVisualSkeleton(skeletalMeshComponent)
+	boneVisualizers = {}
+	local count = skeletalMeshComponent:GetNumBones()
+	print(count, "bones")
+	for index = 1 , count do
+		uevrUtils.print(index .. " " .. skeletalMeshComponent:GetBoneName(index):to_string())
+		boneVisualizers[index] = uevrUtils.createStaticMeshComponent("StaticMesh /Engine/EngineMeshes/Sphere.Sphere")
+		uevrUtils.set_component_relative_transform(boneVisualizers[index], nil, nil, {X=0.003, Y=0.003, Z=0.003})
+	end
+
+end
+
+function updateVisualSkeleton(skeletalMeshComponent)
+	local count = skeletalMeshComponent:GetNumBones()
+	local boneSpace = 0
+	for index = 1 , count do
+		local location = skeletalMeshComponent:GetBoneLocationByName(skeletalMeshComponent:GetBoneName(index), boneSpace)
+		boneVisualizers[index]:K2_SetWorldLocation(location, false, reusable_hit_result, false)
+	end
+
+end
+
+function setVisualSkeletonBoneScale(skeletalMeshComponent, index, scale)
+	if skeletalMeshComponent ~= nil then
+		if index < 1 then index = 1 end
+		if index > skeletalMeshComponent:GetNumBones() then index = skeletalMeshComponent:GetNumBones() end
+		uevrUtils.print("Visualizing " .. index .. " " .. skeletalMeshComponent:GetBoneName(index):to_string())
+		local component = boneVisualizers[index]
+		component.RelativeScale3D.X = scale
+		component.RelativeScale3D.Y = scale
+		component.RelativeScale3D.Z = scale
+	end
+end
 
 function updateHands()
-	if armsComponent ~= nil then
---	armsComponent:Activate()
-		updatePoseableComponent(armsComponent)
---	armsComponent:Deactivate()
-	end
+	-- if armsComponent ~= nil then
+		-- updatePoseableComponent(armsComponent)
+	-- end
 	if glovesComponent ~= nil then
---	glovesComponent:Activate()
-		updatePoseableComponent(glovesComponent)
---	glovesComponent:Deactivate()
+		--updatePoseableComponent(glovesComponent)
+		--updateVisualSkeleton(glovesComponent)
 	end
-
 end
 
 function updatePoseableComponent(poseableComponent)
@@ -1010,33 +1078,89 @@ function updatePoseableComponent(poseableComponent)
 		rotation.Roll = -rotation.Roll
 		local forwardVector = kismet_math_library:GetForwardVector(rotation)
 		location = location + forwardVector * 6
-		poseableComponent:SetBoneLocationByName(boneFName, location, boneSpace)
-		poseableComponent:SetBoneRotationByName(boneFName, rotation, boneSpace)
+
+		location = poseableComponent:GetBoneLocationByName(poseableComponent:GetBoneName(1), boneSpace);
+
+		--poseableComponent:SetBoneLocationByName(boneFName, location, boneSpace)
+		--poseableComponent:SetBoneRotationByName(boneFName, rotation, boneSpace)
 	
-		poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("RightShoulder"), location, boneSpace);
-		poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("RightArm"), location, boneSpace);
+
+		-- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("RightShoulder"), location, boneSpace);
+		-- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("RightArm"), location, boneSpace);
 		poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("RightForeArm"), location, boneSpace);
 
-		local miniScale = 0.0001
---		poseableComponent:SetBoneScaleByName(poseableComponent:GetBoneName(1), vector_3f(miniScale, miniScale, miniScale), boneSpace);
-		poseableComponent:SetBoneScaleByName(uevrUtils.fname_from_string("RightShoulder"), vector_3f(miniScale, miniScale, miniScale), boneSpace);
-		poseableComponent:SetBoneScaleByName(uevrUtils.fname_from_string("RightArm"), vector_3f(miniScale, miniScale, miniScale), boneSpace);
-		poseableComponent:SetBoneScaleByName(uevrUtils.fname_from_string("RightForeArm"), vector_3f(miniScale, miniScale, miniScale), boneSpace);
-		poseableComponent:SetBoneScaleByName(boneFName, vector_3f(1.2, 1.2, 1.2), boneSpace);		
+		local pTransform = poseableComponent:GetBoneTransformByName(poseableComponent:GetBoneName(1), boneSpace)
+		--x is left/right   y is up/down   z is back/forth
+		local cTransform = kismet_math_library:MakeTransform(uevrUtils.vector(0, 0, -30), uevrUtils.rotator(-90, 0, -90), uevrUtils.vector(1.2, 1.2, 1.2))
+		setBoneSpaceLocalTransform(poseableComponent, uevrUtils.fname_from_string("RightForeArm"), cTransform, boneSpace, pTransform)
+		--setBoneSpaceLocalRotator(poseableComponent, uevrUtils.fname_from_string("RightForeArm"), uevrUtils.rotator(-90, 0, 0), boneSpace, pTransform)
+		-- local miniScale = 0.0001
+-- --		poseableComponent:SetBoneScaleByName(poseableComponent:GetBoneName(1), vector_3f(miniScale, miniScale, miniScale), boneSpace);
+-- --		poseableComponent:SetBoneScaleByName(uevrUtils.fname_from_string("RightShoulder"), vector_3f(miniScale, miniScale, miniScale), boneSpace);
+		-- -- poseableComponent:SetBoneScaleByName(uevrUtils.fname_from_string("RightArm"), vector_3f(miniScale, miniScale, miniScale), boneSpace);
+		-- -- poseableComponent:SetBoneScaleByName(uevrUtils.fname_from_string("RightForeArm"), vector_3f(miniScale, miniScale, miniScale), boneSpace);
+		-- poseableComponent:SetBoneScaleByName(boneFName, vector_3f(1.2, 1.2, 1.2), boneSpace);		
 	
-		boneFName = uevrUtils.fname_from_string("LeftHand")		
-		location = controllers.getControllerLocation(0)
-		rotation = controllers.getControllerRotation(0)		
-		rotation.Roll = rotation.Roll + 180 
-		poseableComponent:SetBoneLocationByName(boneFName, location, boneSpace)
-		poseableComponent:SetBoneRotationByName(boneFName, rotation, boneSpace)
+	
+	
+		-- boneFName = uevrUtils.fname_from_string("LeftHand")		
+		-- location = controllers.getControllerLocation(0)
+		-- rotation = controllers.getControllerRotation(0)		
+		-- rotation.Roll = rotation.Roll + 180 
+		
+		-- location = poseableComponent:GetBoneLocationByName(poseableComponent:GetBoneName(1), boneSpace);
+
+		-- poseableComponent:SetBoneLocationByName(boneFName, location, boneSpace)
+		-- --poseableComponent:SetBoneRotationByName(boneFName, rotation, boneSpace)
 		
 		-- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("LeftShoulder"), location, boneSpace);
 		-- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("LeftArm"), location, boneSpace);
-		-- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("LeftForeArm"), location, boneSpace);
+		-- -- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("LeftForeArm"), location, boneSpace);
+
+		poseableComponent:SetBoneScaleByName(uevrUtils.fname_from_string("LeftShoulder"), vector_3f(0, 0, 0), boneSpace);		
 
 	end
 end
+
+-- function updatePoseableComponent(poseableComponent)
+	-- if poseableComponent ~= nil then
+		-- local boneSpace = 0
+		
+		-- local boneFName = uevrUtils.fname_from_string("RightHand")		
+		-- local location = controllers.getControllerLocation(1)
+		-- local rotation = controllers.getControllerRotation(1)		
+		-- rotation.Pitch = -rotation.Pitch 
+		-- rotation.Yaw = rotation.Yaw + 180 
+		-- rotation.Roll = -rotation.Roll
+		-- local forwardVector = kismet_math_library:GetForwardVector(rotation)
+		-- location = location + forwardVector * 6
+		-- poseableComponent:SetBoneLocationByName(boneFName, location, boneSpace)
+		-- poseableComponent:SetBoneRotationByName(boneFName, rotation, boneSpace)
+	
+		-- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("RightShoulder"), location, boneSpace);
+		-- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("RightArm"), location, boneSpace);
+		-- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("RightForeArm"), location, boneSpace);
+
+		-- local miniScale = 0.0001
+-- --		poseableComponent:SetBoneScaleByName(poseableComponent:GetBoneName(1), vector_3f(miniScale, miniScale, miniScale), boneSpace);
+		-- poseableComponent:SetBoneScaleByName(uevrUtils.fname_from_string("RightShoulder"), vector_3f(miniScale, miniScale, miniScale), boneSpace);
+		-- poseableComponent:SetBoneScaleByName(uevrUtils.fname_from_string("RightArm"), vector_3f(miniScale, miniScale, miniScale), boneSpace);
+		-- poseableComponent:SetBoneScaleByName(uevrUtils.fname_from_string("RightForeArm"), vector_3f(miniScale, miniScale, miniScale), boneSpace);
+		-- poseableComponent:SetBoneScaleByName(boneFName, vector_3f(1.2, 1.2, 1.2), boneSpace);		
+	
+		-- boneFName = uevrUtils.fname_from_string("LeftHand")		
+		-- location = controllers.getControllerLocation(0)
+		-- rotation = controllers.getControllerRotation(0)		
+		-- rotation.Roll = rotation.Roll + 180 
+		-- poseableComponent:SetBoneLocationByName(boneFName, location, boneSpace)
+		-- poseableComponent:SetBoneRotationByName(boneFName, rotation, boneSpace)
+		
+		-- -- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("LeftShoulder"), location, boneSpace);
+		-- -- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("LeftArm"), location, boneSpace);
+		-- -- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("LeftForeArm"), location, boneSpace);
+
+	-- end
+-- end
 
 
 function createPoseableHands()
@@ -1126,11 +1250,11 @@ local inNativeMode = true
 RegisterKeyBind(Key.F2, function()
     print("F2 pressed\n")
 	ExecuteInGameThread( function()
-		vrBody = uevrUtils.createStaticMeshComponent("StaticMesh /Engine/EngineMeshes/Sphere.Sphere")
+		--vrBody = uevrUtils.createStaticMeshComponent("StaticMesh /Engine/EngineMeshes/Sphere.Sphere")
 		glovesComponent = createPoseableComponent(getChildSkeletalMeshComponent(pawn.Mesh, "Gloves"))
 		armsComponent = createPoseableComponent(getChildSkeletalMeshComponent(pawn.Mesh, "Arms"))
+		createVisualSkeleton(glovesComponent)
 	end)
-	
 	
 	-- print(
 	-- pawn:IsPlayerControlled(),
@@ -1173,6 +1297,7 @@ RegisterKeyBind(Key.F2, function()
 	-- end
 
 end)
+local boneIndex = 1
 
 RegisterKeyBind(Key.F3, function()
     print("F3 pressed\n")
@@ -1242,6 +1367,21 @@ RegisterKeyBind(Key.F9, function()
 	print("Targeting Mode changed to ", targetingMode, "\n")
 	UEHelpers:GetPlayerController():ActivateAutoTargetSense(targetingMode == 1, true)
 	Json.saveTable(targetingMode, "VRFPSettings.json", "targetingModeSaved")
+end)
+
+RegisterKeyBind(Key.NUM_EIGHT, function()
+    print("NUM8 pressed\n")
+	setVisualSkeletonBoneScale(glovesComponent, boneIndex, 0.003)
+	boneIndex = boneIndex + 1
+	setVisualSkeletonBoneScale(glovesComponent, boneIndex, 0.006)
+end)
+
+RegisterKeyBind(Key.NUM_TWO, function()
+    print("NUM2 pressed\n")
+	setVisualSkeletonBoneScale(glovesComponent, boneIndex, 0.003)
+	boneIndex = boneIndex - 1
+	if boneIndex < 1 then boneIndex = 1 end
+	setVisualSkeletonBoneScale(glovesComponent, boneIndex, 0.006)
 end)
 
 -- [2025-03-28 16:47:53.7592097] [Lua] SkeletalMeshComponent /Game/Levels/Overland/Overland.Overland.PersistentLevel.BP_Biped_Player_C_2147460116.Customization.Hair
