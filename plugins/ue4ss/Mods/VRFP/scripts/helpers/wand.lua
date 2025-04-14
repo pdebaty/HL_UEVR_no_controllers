@@ -9,7 +9,7 @@ local meshComponent = nil
 local wandTipOffset = 30.0
 local isWandHolstered = false
 local maxRetries = 10
-local isDebug = true
+local isDebug = false
 
 function M.isConnected()
 	return meshComponent ~= nil
@@ -33,7 +33,7 @@ function M.connect(pawn, hand)
 				meshComponent:SetVisibility(true, true)
 				meshComponent:SetHiddenInGame(false, true)
 				controllers.attachComponentToController(hand, meshComponent)
-				uevrUtils.set_component_relative_transform(meshComponent, nil, {Pitch=-85, Yaw=0, Roll=0})		
+				uevrUtils.set_component_relative_transform(meshComponent, {X=2.03, Y=-2.950, Z=3.22}, {Pitch=-77.5, Yaw=0, Roll=0})		
 			else
 				uevrUtils.print("Mesh is not valid in wand connect")
 				meshComponent = nil
@@ -78,7 +78,7 @@ function M.connectAltWand(pawn, hand)
 				uevrUtils.print("Attached SK_Wand to Mesh " .. wand.Mesh:get_full_name())
 			else
 				controllers.attachComponentToController(hand, component)
-				uevrUtils.set_component_relative_transform(component, nil, {Pitch=-85, Yaw=0, Roll=0})	
+				uevrUtils.set_component_relative_transform(component, {X=2.03, Y=-2.950, Z=3.22}, {Pitch=-77.5, Yaw=0, Roll=0})	
 				uevrUtils.print("Attached SK_Wand to Motion Controller")
 			end
 			

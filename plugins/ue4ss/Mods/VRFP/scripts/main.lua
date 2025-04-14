@@ -59,6 +59,9 @@ local g_isPregame = true
 local g_eulaClicked = false
 local g_isShowingStartPageIntro = false
 
+local armsComponent = nil
+local glovesComponent = nil
+local vrBody = nil
 
 function UEVRReady(instance)
 	print("UEVR is now ready\n")
@@ -113,6 +116,7 @@ function UEVRReady(instance)
 				position.z = pawnPos.z + forwardVector.Z
 			end
 		end
+
 	end)
 end
 
@@ -557,7 +561,7 @@ function on_pre_engine_tick(engine, delta)
 			updateCrosshair(lastWandTargetDirection, lastWandTargetLocation)
 		end
 	end
-
+	
 end
 
 --callback for on_post_calculate_stereo_view_offset
@@ -570,7 +574,14 @@ function on_post_calculate_stereo_view_offset(device, view_index, world_to_meter
 		end
 		lastHMDPosition = position
 		lastHMDRotation = rotation
+		
 	end
+	-- if vrBody ~= nil then 
+		-- --vrBody:K2_SetWorldLocationAndRotation(position, rotation, false, reusable_hit_result, false) 
+		-- vrBody:K2_SetWorldLocation(position, false, reusable_hit_result, false) 
+	-- end
+	updateHands()
+
 end
 	
 function on_xinput_get_state(retval, user_index, state)
@@ -933,19 +944,100 @@ function overrideCharacterOpacity()
 	end
 end
 
-function createPoseableTorso(skeletalMeshComponent)
+function getChildSkeletalMeshComponent(parent, name)
+	local skeletalMeshComponent = nil
+	local children = parent.AttachChildren
+    for i, child in ipairs(children) do
+		if  string.find(child:get_full_name(), name) then
+			skeletalMeshComponent = child
+		end
+	end
+	return skeletalMeshComponent
+end
+
+function createPoseableComponent(skeletalMeshComponent)
 	local poseableComponent = nil
 	if skeletalMeshComponent ~= nil then
 		poseableComponent = uevrUtils.createPoseableMeshFromSkeletalMesh(skeletalMeshComponent)
-		poseableComponent:K2_AttachTo(skeletalMeshComponent, uevrUtils.fname_from_string(""), 0, false)
-		poseableComponent:SetVisibility(false,true)
-		--controllers.attachComponentToController(0, poseableComponent)
-		--uevrUtils.set_component_relative_transform(meshComponent, {X=50, Y=50, Z=0})			
-
-		skeletalMeshComponent:SetMasterPoseComponent(poseableComponent, true)
+		--poseableComponent:K2_AttachTo(vrBody, uevrUtils.fname_from_string(""), 0, false)
+		controllers.attachComponentToController(1, poseableComponent)
+		uevrUtils.set_component_relative_transform(poseableComponent, {X=0, Y=0, Z=-100}, {Pitch=0, Yaw=-90, Roll=0})		
+		poseableComponent:SetVisibility(false, true)
+		poseableComponent:SetHiddenInGame(true, true)
+		--delay(1000, function() 
+			poseableComponent:SetVisibility(true, true) 
+			poseableComponent:SetHiddenInGame(false, true)
+		--end)
+		--poseableComponent:SetHiddenInGame(false,true)
+		--skeletalMeshComponent:SetMasterPoseComponent(poseableComponent, true)
+		delay(500,function()
+			local materials = skeletalMeshComponent:GetMaterials()
+			uevrUtils.print("Found " .. #materials .. " materials on skeletalMeshComponent")
+			for i, material in ipairs(materials) do				
+				poseableComponent:SetMaterial(i, material)
+			end
+		end)
+	else
+		print("SkeletalMeshComponent was not valid\n")
 	end
 	return poseableComponent
 end
+
+
+function updateHands()
+	if armsComponent ~= nil then
+--	armsComponent:Activate()
+		updatePoseableComponent(armsComponent)
+--	armsComponent:Deactivate()
+	end
+	if glovesComponent ~= nil then
+--	glovesComponent:Activate()
+		updatePoseableComponent(glovesComponent)
+--	glovesComponent:Deactivate()
+	end
+
+end
+
+function updatePoseableComponent(poseableComponent)
+	if poseableComponent ~= nil then
+		local boneSpace = 0
+		
+		local boneFName = uevrUtils.fname_from_string("RightHand")		
+		local location = controllers.getControllerLocation(1)
+		local rotation = controllers.getControllerRotation(1)		
+		rotation.Pitch = -rotation.Pitch 
+		rotation.Yaw = rotation.Yaw + 180 
+		rotation.Roll = -rotation.Roll
+		local forwardVector = kismet_math_library:GetForwardVector(rotation)
+		location = location + forwardVector * 6
+		poseableComponent:SetBoneLocationByName(boneFName, location, boneSpace)
+		poseableComponent:SetBoneRotationByName(boneFName, rotation, boneSpace)
+	
+		poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("RightShoulder"), location, boneSpace);
+		poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("RightArm"), location, boneSpace);
+		poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("RightForeArm"), location, boneSpace);
+
+		local miniScale = 0.0001
+--		poseableComponent:SetBoneScaleByName(poseableComponent:GetBoneName(1), vector_3f(miniScale, miniScale, miniScale), boneSpace);
+		poseableComponent:SetBoneScaleByName(uevrUtils.fname_from_string("RightShoulder"), vector_3f(miniScale, miniScale, miniScale), boneSpace);
+		poseableComponent:SetBoneScaleByName(uevrUtils.fname_from_string("RightArm"), vector_3f(miniScale, miniScale, miniScale), boneSpace);
+		poseableComponent:SetBoneScaleByName(uevrUtils.fname_from_string("RightForeArm"), vector_3f(miniScale, miniScale, miniScale), boneSpace);
+		poseableComponent:SetBoneScaleByName(boneFName, vector_3f(1.2, 1.2, 1.2), boneSpace);		
+	
+		boneFName = uevrUtils.fname_from_string("LeftHand")		
+		location = controllers.getControllerLocation(0)
+		rotation = controllers.getControllerRotation(0)		
+		rotation.Roll = rotation.Roll + 180 
+		poseableComponent:SetBoneLocationByName(boneFName, location, boneSpace)
+		poseableComponent:SetBoneRotationByName(boneFName, rotation, boneSpace)
+		
+		-- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("LeftShoulder"), location, boneSpace);
+		-- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("LeftArm"), location, boneSpace);
+		-- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("LeftForeArm"), location, boneSpace);
+
+	end
+end
+
 
 function createPoseableHands()
 	--local skeletalMeshComponent = uevrUtils.find_instance_of("Class /Script/Engine.SkeletalMeshComponent", "Gloves")
@@ -971,7 +1063,7 @@ function createPoseableHands()
 	return poseableComponent
 end
 
-function updatePoseableComponent(poseableComponent)
+function updatePoseableComponent_old(poseableComponent)
 	if poseableComponent ~= nil then
 		local boneSpace = 0
 		
@@ -1033,18 +1125,24 @@ end)
 local inNativeMode = true
 RegisterKeyBind(Key.F2, function()
     print("F2 pressed\n")
+	ExecuteInGameThread( function()
+		vrBody = uevrUtils.createStaticMeshComponent("StaticMesh /Engine/EngineMeshes/Sphere.Sphere")
+		glovesComponent = createPoseableComponent(getChildSkeletalMeshComponent(pawn.Mesh, "Gloves"))
+		armsComponent = createPoseableComponent(getChildSkeletalMeshComponent(pawn.Mesh, "Arms"))
+	end)
 	
-	print(
-	pawn:IsPlayerControlled(),
-    pawn:IsPawnControlled(),
-    pawn:IsMoveInputIgnored(),
-    pawn:IsLocallyControlled(),
-    pawn:IsControlled(),
-    pawn:IsBotControlled(),
-	Statics:IsGamePaused(uevrUtils.get_world()),
-	uiManager:InPauseMode(),
-	uiManager:GetIsUIShown(),
-	"\n")
+	
+	-- print(
+	-- pawn:IsPlayerControlled(),
+    -- pawn:IsPawnControlled(),
+    -- pawn:IsMoveInputIgnored(),
+    -- pawn:IsLocallyControlled(),
+    -- pawn:IsControlled(),
+    -- pawn:IsBotControlled(),
+	-- Statics:IsGamePaused(uevrUtils.get_world()),
+	-- uiManager:InPauseMode(),
+	-- uiManager:GetIsUIShown(),
+	-- "\n")
 
 	-- ExecuteInGameThread( function()
 		-- print("1\n")
