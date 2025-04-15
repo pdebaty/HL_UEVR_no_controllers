@@ -33,7 +33,7 @@ function M.connect(pawn, hand)
 				meshComponent:SetVisibility(true, true)
 				meshComponent:SetHiddenInGame(false, true)
 				controllers.attachComponentToController(hand, meshComponent)
-				uevrUtils.set_component_relative_transform(meshComponent, {X=2.03, Y=-2.950, Z=3.22}, {Pitch=-77.5, Yaw=0, Roll=0})		
+				uevrUtils.set_component_relative_transform(meshComponent, {X=0, Y=0, Z=0}, {Pitch=-85, Yaw=0, Roll=0})		
 			else
 				uevrUtils.print("Mesh is not valid in wand connect")
 				meshComponent = nil

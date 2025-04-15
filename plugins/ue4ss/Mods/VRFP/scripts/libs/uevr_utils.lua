@@ -22,7 +22,7 @@ Usage
 				print("after one second delay")
 			end)
 
-	uevrUtils.vector_2(x, y) - returns a CoreUObject.Vector2D structure with the given params
+	uevrUtils.vector_2(x, y, reuseable) - returns a CoreUObject.Vector2D structure with the given params
 		example:
 			print("X value is",uevrUtils.vector_2(3, 4).X)
 			
@@ -38,13 +38,20 @@ Usage
 		example:
 			print("Z value is",uevrUtils.quatf(3, 4, 5, 1).Z)
 	
-	uevrUtils.quat(x, y, z, w) - returns a CoreUObject.Quat structure with the given params
+	uevrUtils.quat(x, y, z, w, reuseable) - returns a CoreUObject.Quat structure with the given params.
+		If reuseable is true a cached struct is returned. This is faster but if you need two instances for the same function call this would not work
 		example:
 			print("Z value is",uevrUtils.quat(3, 4, 5, 1).Z)
 	
-	uevrUtils.rotator(pitch, yaw, roll) - returns a CoreUObject.Rotator with the given params
+	uevrUtils.rotator(pitch, yaw, roll, reuseable) - returns a CoreUObject.Rotator with the given params
+		If reuseable is true a cached struct is returned. This is faster but if you need two instances for the same function call this would not work
 		example:
 			print("Yaw value is",uevrUtils.rotator(30, 40, 50).Yaw)
+	
+	uevrUtils.vector(x, y, z, reuseable) - returns a CoreUObject.Vector with the given params
+		If reuseable is true a cached struct is returned. This is faster but if you need two instances for the same function call this would not work
+		example:
+			print("X value is",uevrUtils.vector(30, 40, 50).X)
 	
 	
 	uevrUtils.rotatorFromQuat(x, y, z, w) - returns CoreUObject.Rotator given the x,y,z and w values from a quaternion
@@ -126,11 +133,13 @@ Usage
 		example:
 			local fname = uevrUtils.fname_from_string("Mesh")
 			
-	uevrUtils.color_from_rgba(r,g,b,a) or color_from_rgba(r,g,b,a) - returns a CoreUObject.LinearColor struct with the given params in the range of 0.0 to 1.0
+	uevrUtils.color_from_rgba(r,g,b,a,reuseable) or color_from_rgba(r,g,b,a,reuseable) - returns a CoreUObject.LinearColor struct with the given params in the range of 0.0 to 1.0
+		If reuseable is true a cached struct is returned. This is faster but if you need two instances for the same function call this would not work
 		example:
 			local color = uevrUtils.color_from_rgba(1.0, 0.0, 0.0, 1.0)
 			
-	uevrUtils.color_from_rgba_int(r,g,b,a) or color_from_rgba_int(r,g,b,a) - returns a CoreUObject.Color struct with the given params in the range of 0 to 255
+	uevrUtils.color_from_rgba_int(r,g,b,a,reuseable) or color_from_rgba_int(r,g,b,a,reuseable) - returns a CoreUObject.Color struct with the given params in the range of 0 to 255
+		If reuseable is true a cached struct is returned. This is faster but if you need two instances for the same function call this would not work
 		example:
 			uevr.api:get_player_controller(0):ClientSetCameraFade(false, color_from_rgba_int(0,0,0,0), vector_2(0, 1), 1.0, false, false)
 
@@ -499,16 +508,16 @@ function M.registerPostCalculateStereoViewCallback(func)
 	registerUEVRCallback("postCalculateStereoView", func)
 end
 
-function vector_2(x, y)
-	local vector = M.get_reuseable_struct_object("ScriptStruct /Script/CoreUObject.Vector2D")
+function vector_2(x, y, reuseable)
+	local vector = M.get_struct_object("ScriptStruct /Script/CoreUObject.Vector2D", reuseable)
 	if vector ~= nil then
 		vector.X = x
 		vector.Y = y
 	end
 	return vector
 end
-function M.vector_2(x, y)
-	return vector_2(x, y)
+function M.vector_2(x, y, reuseable)
+	return vector_2(x, y, reuseable)
 end
 
 function vector_3(x, y, z)
@@ -535,16 +544,26 @@ function M.quatf(x, y, z, w)
 	return quatf(x, y, z, w)
 end
 
-function M.quat(x, y, z, w)
-	local quat = M.get_reuseable_struct_object("ScriptStruct /Script/CoreUObject.Quat")
+function M.vector(x, y, z, reuseable)
+	local vector = M.get_struct_object("ScriptStruct /Script/CoreUObject.Vector", reuseable)
+	if vector ~= nil then
+		vector.X = x
+		vector.Y = y
+		vector.Z = z
+	end
+	return vector
+end
+
+function M.quat(x, y, z, w, reuseable)
+	local quat = M.get_struct_object("ScriptStruct /Script/CoreUObject.Quat", reuseable)
 	if quat ~= nil then
 		kismet_math_library:Quat_SetComponents(quat, x, y, z, w)
 	end
 	return quat
 end
 
-function M.rotator(pitch, yaw, roll)
-	local rotator = M.get_reuseable_struct_object("ScriptStruct /Script/CoreUObject.Rotator")
+function M.rotator(pitch, yaw, roll, reuseable)
+	local rotator = M.get_struct_object("ScriptStruct /Script/CoreUObject.Rotator", reuseable)
 	if rotator ~= nil then
 		rotator.Pitch = pitch
 		rotator.Yaw = yaw
@@ -557,10 +576,10 @@ function M.rotatorFromQuat(x, y, z, w)
 	return kismet_math_library:Quat_Rotator(M.quat(x, y, z, w))
 end
 
-function M.get_transform(position, rotation, scale)
+function M.get_transform(position, rotation, scale, reuseable)
 	if position == nil then position = {X=0.0, Y=0.0, Z=0.0} end 
 	if scale == nil then scale = {X=1.0, Y=1.0, Z=1.0} end
-	local transform = M.get_reuseable_struct_object("ScriptStruct /Script/CoreUObject.Transform")
+	local transform = M.get_struct_object("ScriptStruct /Script/CoreUObject.Transform", reuseable)
 	transform.Translation = vector_3f(position.X, position.Y, position.Z)
 	if rotation == nil then
 		transform.Rotation.X = 0.0
@@ -603,6 +622,17 @@ function M.get_reuseable_struct_object(structClassName)
 		end
 	end
 	return structCache[structClassName]
+end
+
+function M.get_struct_object(structClassName, reuseable)
+	if reuseable == true then
+		return M.get_reuseable_struct_object(structClassName)
+	end
+	local class = M.get_class(structClassName)
+	if class ~= nil then
+		return StructObject.new(class)
+	end
+	return nil
 end
 
 function M.get_world()
@@ -791,8 +821,8 @@ function M.fname_from_string(str)
 end
 
 -- float values from 0.0 to 1.0
-function color_from_rgba(r,g,b,a)
-	local color = M.get_reuseable_struct_object("ScriptStruct /Script/CoreUObject.LinearColor") --StructObject.new(M.get_class("ScriptStruct /Script/CoreUObject.LinearColor"))
+function color_from_rgba(r,g,b,a, reuseable)
+	local color = M.get_struct_object("ScriptStruct /Script/CoreUObject.LinearColor", reuseable) --StructObject.new(M.get_class("ScriptStruct /Script/CoreUObject.LinearColor"))
 	--zero_color = StructObject.new(color_c)
 	color.R = r
 	color.G = g
@@ -804,12 +834,12 @@ function color_from_rgba(r,g,b,a)
 	color.A = a
 	return color
 end
-function M.color_from_rgba(r,g,b,a)
-	return color_from_rgba(r,g,b,a)
+function M.color_from_rgba(r,g,b,a, reuseable)
+	return color_from_rgba(r,g,b,a, reuseable)
 end
 -- int values from 0 to 255
-function color_from_rgba_int(r,g,b,a)
-	local color = M.get_reuseable_struct_object("ScriptStruct /Script/CoreUObject.Color") --StructObject.new(M.get_class("ScriptStruct /Script/CoreUObject.Color"))
+function color_from_rgba_int(r,g,b,a, reuseable)
+	local color = M.get_struct_object("ScriptStruct /Script/CoreUObject.Color", reuseable) --StructObject.new(M.get_class("ScriptStruct /Script/CoreUObject.Color"))
 	color.R = r
 	color.G = g
 	if color["B"] == nil then
@@ -820,8 +850,8 @@ function color_from_rgba_int(r,g,b,a)
 	color.A = a
 	return color
 end
-function M.color_from_rgba_int(r,g,b,a)
-	return color_from_rgba_int(r,g,b,a)
+function M.color_from_rgba_int(r,g,b,a, reuseable)
+	return color_from_rgba_int(r,g,b,a, reuseable)
 end
 
 function M.splitStr(inputstr, sep)
@@ -965,6 +995,7 @@ function M.createPoseableMeshFromSkeletalMesh(skeletalMeshComponent)
 	local poseableComponent = nil
 	if skeletalMeshComponent ~= nil then
 		poseableComponent = M.create_component_of_class("Class /Script/Engine.PoseableMeshComponent", false)
+		poseableComponent:SetCollisionEnabled(false,false)
 		if poseableComponent ~= nil then
 			M.print("Created poseablemeshcomponent" .. poseableComponent:get_full_name())
 			poseableComponent.SkeletalMesh = skeletalMeshComponent.SkeletalMesh		
@@ -982,11 +1013,11 @@ function M.createPoseableMeshFromSkeletalMesh(skeletalMeshComponent)
 			
 			pcall(function()
 				poseableComponent:CopyPoseFromSkeletalComponent(skeletalMeshComponent)	
-				--M.print("Pose copied")
+				M.print("Pose copied")
 			end)	
 
 		else 
-			print("PoseableMeshComponent could not be created")
+			M.print("PoseableMeshComponent could not be created")
 		end
 	end
 	return poseableComponent

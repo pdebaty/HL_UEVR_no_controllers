@@ -20,7 +20,7 @@ local function createFlickerFixerComponent(fov, rt)
 end
 
 function triggerFlickerFixer()
-	if flickerFixerComponent ~= nil then
+	if uevrUtils.validate_object(flickerFixerComponent) ~= nil then
 		flickerFixerComponent:SetVisibility(true)
 		--print("Fixer on")
 		delay(1000, function()

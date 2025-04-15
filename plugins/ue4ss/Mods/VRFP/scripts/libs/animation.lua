@@ -3,6 +3,54 @@ local uevrUtils = require("libs/uevr_utils")
 local M = {}
 
 local animations = {}
+local boneVisualizers = {}
+
+function M.createPoseableComponent(skeletalMeshComponent)
+	local poseableComponent = nil
+	if skeletalMeshComponent ~= nil then
+		poseableComponent = uevrUtils.createPoseableMeshFromSkeletalMesh(skeletalMeshComponent)
+		poseableComponent:SetVisibility(false, true)
+		poseableComponent:SetHiddenInGame(true, true)
+		poseableComponent:SetVisibility(true, true) 
+		poseableComponent:SetHiddenInGame(false, true)
+		
+		--fixes flickering but > 1 causes a pefromance hit with dynamic shadows
+		poseableComponent.BoundsScale = 8.0
+		poseableComponent.bCastDynamicShadow=false
+		
+		-- delay(500,function()
+			-- local materials = skeletalMeshComponent:GetMaterials()
+			-- uevrUtils.print("Found " .. #materials .. " materials on skeletalMeshComponent")
+			-- for i, material in ipairs(materials) do				
+				-- poseableComponent:SetMaterial(i, material)
+			-- end
+		-- end)
+	else
+		print("SkeletalMeshComponent was not valid\n")
+	end
+
+	return poseableComponent
+end
+
+-- boneName - the name of the bone that will server as the root of the hand. It could be the hand bone or the forearm bone
+-- hideBoneName -if showing the right hand then you would hide the left shoulder and vice versa
+-- M.initPoseableComponent(poseableComponent, "RightForeArm", "LeftShoulder", location, rotation, scale)
+function M.initPoseableComponent(poseableComponent, boneName, hideBoneName, location, rotation, scale)
+	if poseableComponent ~= nil then
+		local boneSpace = 0
+		--get the location of the root of the skeleton
+		--location = poseableComponent:GetBoneLocationByName(poseableComponent:GetBoneName(1), boneSpace);
+		--poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string(boneName), location, boneSpace);
+
+		local pTransform = poseableComponent:GetBoneTransformByName(poseableComponent:GetBoneName(1), boneSpace)
+		--x is left/right   y is up/down   z is back/forth
+		local cTransform = kismet_math_library:MakeTransform(location, rotation, scale)
+		M.setBoneSpaceLocalTransform(poseableComponent, uevrUtils.fname_from_string(boneName), cTransform, boneSpace, pTransform)
+
+		poseableComponent:SetBoneScaleByName(uevrUtils.fname_from_string(hideBoneName), vector_3f(0, 0, 0), boneSpace);		
+
+	end
+end
 
 function M.getBoneSpaceLocalRotator(component, boneFName, fromBoneSpace)
 	if component ~= nil and boneFName ~= nil then
@@ -17,6 +65,17 @@ function M.getBoneSpaceLocalRotator(component, boneFName, fromBoneSpace)
 	return nil, nil
 end
 
+function M.getChildSkeletalMeshComponent(parent, name)
+	local skeletalMeshComponent = nil
+	local children = parent.AttachChildren
+    for i, child in ipairs(children) do
+		if  string.find(child:get_full_name(), name) then
+			skeletalMeshComponent = child
+		end
+	end
+	return skeletalMeshComponent
+end
+
 --if you know the parent transform then pass it in to save a step
 function M.setBoneSpaceLocalRotator(component, boneFName, localRotator, toBoneSpace, pTransform)
 	if component ~= nil and boneFName ~= nil then
@@ -26,6 +85,16 @@ function M.setBoneSpaceLocalRotator(component, boneFName, localRotator, toBoneSp
 		component:SetBoneRotationByName(boneFName, wRotator, toBoneSpace)
 	end
 end
+
+function M.setBoneSpaceLocalTransform(component, boneFName, localTransform, toBoneSpace, pTransform)
+	if component ~= nil and boneFName ~= nil then
+		if toBoneSpace == nil then toBoneSpace = 0 end
+		if pTransform == nil then pTransform = component:GetBoneTransformByName(component:GetParentBone(boneFName), toBoneSpace) end
+		local wTransform = kismet_math_library:ComposeTransforms(localTransform, pTransform)
+		component:SetBoneTransformByName(boneFName, wTransform, toBoneSpace)
+	end
+end
+
 
 function M.animate(animID, animName, val)
 	local component = animations[animID]["component"]
@@ -51,6 +120,43 @@ function M.add(animID, skeletalMeshComponent, animationDefinitions)
 	animations[animID] = {}
 	animations[animID]["component"] = skeletalMeshComponent
 	animations[animID]["definitions"] = animationDefinitions
+end
+
+function M.createSkeletalVisualization(skeletalMeshComponent, scale)
+	if skeletalMeshComponent ~= nil then
+		if scale == nil then scale = 0.003 end
+		boneVisualizers = {}
+		local count = skeletalMeshComponent:GetNumBones()
+		--print(count, "bones")
+		for index = 1 , count do
+			--uevrUtils.print(index .. " " .. skeletalMeshComponent:GetBoneName(index):to_string())
+			boneVisualizers[index] = uevrUtils.createStaticMeshComponent("StaticMesh /Engine/EngineMeshes/Sphere.Sphere")
+			uevrUtils.set_component_relative_transform(boneVisualizers[index], nil, nil, {X=scale, Y=scale, Z=scale})
+		end
+	end
+end
+
+function M.updateSkeletalVisualization(skeletalMeshComponent)
+	if skeletalMeshComponent ~= nil then
+		local count = skeletalMeshComponent:GetNumBones()
+		local boneSpace = 0
+		for index = 1 , count do
+			local location = skeletalMeshComponent:GetBoneLocationByName(skeletalMeshComponent:GetBoneName(index), boneSpace)
+			boneVisualizers[index]:K2_SetWorldLocation(location, false, reusable_hit_result, false)
+		end
+	end
+end
+
+function M.setSkeletalVisualizationBoneScale(skeletalMeshComponent, index, scale)
+	if skeletalMeshComponent ~= nil then
+		if index < 1 then index = 1 end
+		if index > skeletalMeshComponent:GetNumBones() then index = skeletalMeshComponent:GetNumBones() end
+		uevrUtils.print("Visualizing " .. index .. " " .. skeletalMeshComponent:GetBoneName(index):to_string())
+		local component = boneVisualizers[index]
+		component.RelativeScale3D.X = scale
+		component.RelativeScale3D.Y = scale
+		component.RelativeScale3D.Z = scale
+	end
 end
 
 function M.logBoneRotators(boneList)
