@@ -71,6 +71,10 @@ Usage
 			uevrUtils.set_component_relative_transform(meshComponent) -- position and rotation are set to 0s, scale is set to 1
 			uevrUtils.set_component_relative_transform(meshComponent, {X=10, Y=10, Z=10}, {Pitch=0, Yaw=90, Roll=0})
 	
+	uevrUtils.get_struct_object(structClassName, (optional)reuseable) - get a structure object that can optionally be reuseable
+		example:
+			local vector = uevrUtils.get_struct_object("ScriptStruct /Script/CoreUObject.Vector2D")
+			
 	uevrUtils.get_reuseable_struct_object(structClassName) - gets a structure that can be reused in the way temp_transform was used but for any structure class
 		The structure is cached so repeated calls to this function for the same class incur no penalty
 		example:
@@ -95,8 +99,8 @@ Usage
 		example:
 			uevrUtils.destroy_actor(actor)
 		
-	uevrUtils.create_component_of_class(className, (optional)manualAttachment, (optional)relativeTransform, (optional)deferredFinish) - creates and 
-		initializes a component based object of the desired class
+	uevrUtils.create_component_of_class(className, (optional)manualAttachment, (optional)relativeTransform, (optional)deferredFinish, (optional)parent) - creates and 
+		initializes a component based object of the desired class. If parent is provided then parent is used as the component's actor rather than create a new actor
 		example:
 			local component = create_component_of_class("Class /Script/Engine.StaticMeshComponent")
 	
@@ -168,6 +172,31 @@ Usage
 			uevrUtils.set_cvar_int("r.VolumetricFog", 0)
 			
 	uevrUtils.PrintInstanceNames(class_to_search) - Print all instance names of a class to debug console
+	
+	uevrUtils.getAssetDataFromPath(pathStr) - converts a path string into an AssetData structure
+		example:
+			local fAssetData = uevrUtils.getAssetDataFromPath("StaticMesh /Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword")
+			
+	uevrUtils.getLoadedAsset(pathStr) - get an object even if it's not already loaded into the system
+		example:
+			local staticMesh = uevrUtils.getLoadedAsset("StaticMesh /Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword")
+
+	uevrUtils.copyMaterials(fromComponent, toComponent) - Copy Materials from one component to another
+		example:
+			uevrUtils.copyMaterials(wand.SK_Wand, component)
+	
+	uevrUtils.getChildComponent(parent, name) - gets a child component of a given parent component (from AttachChildren param) using partial name
+		example:
+			local referenceGlove = uevrUtils.getChildComponent(pawn.Mesh, "Gloves")
+	
+	uevrUtils.createPoseableMeshFromSkeletalMesh(skeletalMeshComponent, (optional)parent) - creates a skeletal mesh component (PoseableMeshComponent) that can be 
+		manually manipulated and is a copy of the passed in skeletalMeshComponent. If parent is provided then parent is used as the component's actor rather 
+		than create a new actor
+		example:
+			poseableComponent = uevrUtils.createPoseableMeshFromSkeletalMesh(skeletalMeshComponent)
+	
+	uevrUtils.createSkeletalMeshComponent(meshName, (optional)parent) - creates a skeletal mesh component and assigns a mesh to it with the given name. 
+		Can use short name. If parent is provided then parent is used as the component's actor rather than create a new actor
 	
 	uevrUtils.createStaticMeshComponent(meshName) - creates a static mesh component and assigns a mesh to it with the given name. Can use short name
 		example:
@@ -717,12 +746,12 @@ function M.create_component_of_class(className, manualAttachment, relativeTransf
 	if relativeTransform == nil then relativeTransform = M.get_transform() end
 	if deferredFinish == nil then deferredFinish = false end
 	local baseActor = parent
-	if baseActor == nil then baseActor = M.spawn_actor( nil, 1, nil) end
+	if baseActor == nil or baseActor.AddComponentByClass == nil then baseActor = M.spawn_actor( nil, 1, nil) end
 	local component = baseActor:AddComponentByClass(M.get_class(className), manualAttachment, relativeTransform, deferredFinish)
 	component:SetVisibility(true)
 	component:SetHiddenInGame(false)
 	if component.SetCollisionEnabled ~= nil then
-		component:SetCollisionEnabled(0)	
+		component:SetCollisionEnabled(0, false)	
 	end
 	return component
 end
@@ -990,12 +1019,85 @@ function M.set_2D_mode(state, delay_msec)
 	end
 end
 
-function M.createPoseableMeshFromSkeletalMesh(skeletalMeshComponent)
+--there should be a better way to do this with the asset registry
+function M.getAssetDataFromPath(pathStr)
+	local fAssetData = uevrUtils.get_struct_object("ScriptStruct /Script/CoreUObject.AssetData")
+	local arr = uevrUtils.splitStr(pathStr, " ")
+	fAssetData.AssetClass = uevrUtils.fname_from_string(arr[1]) 
+	fAssetData.ObjectPath = uevrUtils.fname_from_string(arr[2])
+	arr = uevrUtils.splitStr(arr[2], "/")
+	local arr2 = uevrUtils.splitStr(arr[#arr], ".")
+	fAssetData.AssetName = uevrUtils.fname_from_string(arr2[2])
+	local packagePath = table.concat(arr, "/", 1, #arr - 1)
+	fAssetData.PackagePath = packagePath
+	fAssetData.PackageName = packagePath .. "/" .. arr2[1]
+	return fAssetData
+end
+
+function M.getLoadedAsset(pathStr)
+	local fAssetData = getAssetDataFromPath(pathStr)
+	local assetRegistryHelper = uevrUtils.find_first_of("Class /Script/AssetRegistry.AssetRegistryHelpers",  true)
+	if not assetRegistryHelper:IsAssetLoaded(fAssetData) then
+		local fSoftObjectPath = assetRegistryHelper:ToSoftObjectPath(fAssetData);
+		kismet_system_library:LoadAsset_Blocking(fSoftObjectPath)
+	end
+	
+	return assetRegistryHelper:GetAsset(fAssetData) 
+end
+
+function M.copyMaterials(fromComponent, toComponent)
+	if fromComponent ~= nil and toComponent ~= nil then
+		local materials = fromComponent:GetMaterials()
+		if materials ~= nil then
+			M.print("Copying materials. Found " .. #materials .. " materials on fromComponent")
+			for i = 1 , #materials do
+				toComponent:SetMaterial(i - 1, materials[i])
+				M.print("Material index " .. i .. ": " .. materials[i]:get_full_name())
+			end
+		end
+	end
+end
+
+function M.getChildComponent(parent, name)
+	local childComponent = nil
+	if M.validate_object(parent) ~= nil and name ~= nil then
+		local children = parent.AttachChildren
+		for i, child in ipairs(children) do
+			if  string.find(child:get_full_name(), name) then
+				childComponent = child
+			end
+		end
+	end
+	return childComponent
+end
+
+function M.detachAndDestroyComponent(component, destroyOwner)
+	if component ~= nil then
+		M.print("Detaching " .. component:get_full_name())
+		component:DetachFromParent(true,false)
+		M.print("Component detached")
+		pcall(function()
+			M.print("Getting component owner")
+			local actor = component:GetOwner()
+			if actor ~= nil and actor.K2_DestroyComponent ~= nil then
+				M.print("Got component owner " .. actor:get_full_name())
+				actor:K2_DestroyComponent(component)
+				M.print("Destroyed component " .. component:get_full_name())
+				if destroyOwner == nil then destroyOwner = false end
+				if destroyOwner then
+					actor:K2_DestroyActor()
+				end
+			end
+		end)	
+	end
+end
+
+function M.createPoseableMeshFromSkeletalMesh(skeletalMeshComponent, parent)
 	M.print("Creating PoseableMeshComponent from" .. skeletalMeshComponent:get_full_name())
 	local poseableComponent = nil
 	if skeletalMeshComponent ~= nil then
-		poseableComponent = M.create_component_of_class("Class /Script/Engine.PoseableMeshComponent", false)
-		poseableComponent:SetCollisionEnabled(false,false)
+		poseableComponent = M.create_component_of_class("Class /Script/Engine.PoseableMeshComponent", false, nil, nil, parent)
+		--poseableComponent:SetCollisionEnabled(0, false)
 		if poseableComponent ~= nil then
 			M.print("Created poseablemeshcomponent" .. poseableComponent:get_full_name())
 			poseableComponent.SkeletalMesh = skeletalMeshComponent.SkeletalMesh		
@@ -1003,19 +1105,13 @@ function M.createPoseableMeshFromSkeletalMesh(skeletalMeshComponent)
 			poseableComponent:SetMasterPoseComponent(skeletalMeshComponent, true)
 			poseableComponent:SetMasterPoseComponent(nil, false)
 			M.print("Master pose updated")
-
-			-- local materials = skeletalMeshComponent:GetMaterials()
-			-- print("found",#materials,"materials")
-			-- for i, material in ipairs(materials) do				
-				-- poseableComponent:SetMaterial(i, material)
-				-- if i == 1 then break end
-			-- end
 			
 			pcall(function()
 				poseableComponent:CopyPoseFromSkeletalComponent(skeletalMeshComponent)	
 				M.print("Pose copied")
 			end)	
-
+		
+			M.copyMaterials(skeletalMeshComponent, poseableComponent)
 		else 
 			M.print("PoseableMeshComponent could not be created")
 		end
@@ -1026,7 +1122,7 @@ end
 function M.createStaticMeshComponent(meshName)
 	local component = M.create_component_of_class("Class /Script/Engine.StaticMeshComponent")
 	if component ~= nil then
-		component:SetCollisionEnabled(false,false)
+		--component:SetCollisionEnabled(false,false)
 		--various ways of finding a StaticMesh
 		--local staticMesh = uevrUtils.find_required_object("StaticMesh /Engine/EngineMeshes/Sphere.Sphere") --no caching so performance could suffer
 		--local staticMesh = uevrUtils.get_class("StaticMesh /Engine/EngineMeshes/Sphere.Sphere") --has caching but call is ideally meant for classes not other types
@@ -1047,7 +1143,7 @@ end
 function M.createSkeletalMeshComponent(meshName, parent)
 	local component = M.create_component_of_class("Class /Script/Engine.SkeletalMeshComponent", nil, nil, nil, parent)
 	if component ~= nil then
-		component:SetCollisionEnabled(false,false)
+		--component:SetCollisionEnabled(false,false)
 		local skeletalMesh = M.find_instance_of("Class /Script/Engine.SkeletalMesh", meshName) 
 		if skeletalMesh ~= nil then
 			component:SetSkeletalMesh(skeletalMesh)				
