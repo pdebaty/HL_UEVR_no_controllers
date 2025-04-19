@@ -42,6 +42,13 @@ true = Wand will only hide when you holster it by putting your hand down to your
 manualHideWand = true
 
 --[[
+Show Hands 
+false = No hands will be shown
+true = Hands will be visible
+]]--
+showHands = true
+
+--[[
 Player offset 
 X - Positive values forward, Negative values backward
 Y - Positive values right, Negative values left

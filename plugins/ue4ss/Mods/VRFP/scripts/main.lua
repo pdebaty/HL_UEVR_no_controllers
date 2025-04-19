@@ -120,10 +120,205 @@ function UEVRReady(instance)
 	end)
 end
 
-function connectCube(hand)
+function assetLoadedCallback(object)
+	print("here")
+end
+
+function doLoadAsset()
+
+--ObjectProperty NavCollision=(NavCollision /Engine/BasicShapes/Cube.Cube.NavCollision_1)
+
+
+	--local fSoftObjectPath = kismet_system_library:MakeSoftObjectPath(path)
+	-- LoadAsset("StaticMesh /Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword")
+	-- LoadAsset("/Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword")
+	-- LoadAsset("/Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword")
+	--local latentInfo = uevrUtils.get_struct_object("ScriptStruct /Script/Engine.LatentActionInfo") 
+	-- latentInfo.CallbackTarget = *myObjectWithDerivesFromUObject
+	-- latentInfo.ExecutionFunction = "myFunctionToCall"
+	-- latentInfo.UUID = 1
+	-- latentInfo.Linkage = 0
+	
+	--kismet_system_library:OnAssetLoaded__DelegateSignature(class UObject* Loaded)
+	--kismet_system_library:LoadAsset(uevrUtils.get_world(), fSoftObjectPath, assetLoadedCallback, latentInfo)
+	-- path = "/Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword"
+	-- kismet_system_library:LoadAsset(uevrUtils.get_world(), kismet_system_library:MakeSoftObjectPath(path), assetLoadedCallback, latentInfo)
+	-- path = "StaticMesh /Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword"
+	-- kismet_system_library:LoadAsset(uevrUtils.get_world(), kismet_system_library:MakeSoftObjectPath(path), assetLoadedCallback, latentInfo)
+	-- print("Before")
+	
+	-- -- FSoftObjectPath MakeSoftObjectPath(FString PathString)
+	-- -- TSoftObjectPtr<UObject> Conv_SoftObjPathToSoftObjRef(const FSoftObjectPath& SoftObjectPath)
+	-- -- class UObject* LoadAsset_Blocking(TSoftObjectPtr<UObject> Asset)
+	-- local pathStr = "/Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword"
+	-- local path = kismet_system_library:MakeSoftObjectPath(pathStr)
+	-- local ptr = kismet_system_library:Conv_SoftObjPathToSoftObjRef(path)
+	-- local object = kismet_system_library:LoadAsset_Blocking(ptr)
+	-- print(pathStr,path.AssetPathName,path.SubPathString,ptr,object,"\n")
+	
+	-- pathStr = "/Engine/BasicShapes/Cube"
+	-- path = kismet_system_library:MakeSoftObjectPath(pathStr)
+	-- path.SubPathString = "Cube"
+	-- debugModule.dump(path)
+	-- ptr = kismet_system_library:Conv_SoftObjPathToSoftObjRef(path)
+	-- object = kismet_system_library:LoadAsset_Blocking(ptr)
+	-- --This is insane, setting SubPathString here fails and is nil in the following debug statements
+	-- path.SubPathString = "Cube"
+	-- debugModule.dump(path)
+	-- print("The path is ",path.SubPathString,"\n")
+	-- print(pathStr,path,path.AssetPathName,path.SubPathString,ptr,object,"\n")
+	
+	-- pathStr = "/Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword"
+	-- path = kismet_system_library:MakeSoftObjectPath(pathStr)
+	-- ptr = kismet_system_library:Conv_SoftObjPathToSoftObjRef(path)
+	-- object = kismet_system_library:LoadAsset_Blocking(ptr)
+	-- print(pathStr,path,ptr,object,"\n")
+	
+	-- pathStr = "SM_HW_Armor_Sword.SM_HW_Armor_Sword"
+	-- path = kismet_system_library:MakeSoftObjectPath(pathStr)
+	-- ptr = kismet_system_library:Conv_SoftObjPathToSoftObjRef(path)
+	-- object = kismet_system_library:LoadAsset_Blocking(ptr)
+	-- print(pathStr,path,ptr,object,"\n")
+	
+	-- pathStr = "SM_HW_Armor_Sword"
+	-- path = kismet_system_library:MakeSoftObjectPath(pathStr)
+	-- ptr = kismet_system_library:Conv_SoftObjPathToSoftObjRef(path)
+	-- object = kismet_system_library:LoadAsset_Blocking(ptr)
+	-- print(pathStr,path,ptr,object,"\n")
+	
+	-- pathStr = "StaticMesh /Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword"
+	-- path = kismet_system_library:MakeSoftObjectPath(pathStr)
+	-- ptr = kismet_system_library:Conv_SoftObjPathToSoftObjRef(path)
+	-- object = kismet_system_library:LoadAsset_Blocking(ptr)
+	-- print(pathStr,path,ptr,object,"\n")
+	
+print("1\n")
+	local assetRegistryHelper = uevrUtils.find_first_of("Class /Script/AssetRegistry.AssetRegistryHelpers",  true)
+print("2\n")
+	debugModule.dump(assetRegistryHelper)
+print("3\n")
+	local assetRegistry = assetRegistryHelper:GetAssetRegistry()
+print("4\n")
+	debugModule.dump(assetRegistry)
+print("5\n")
+
 	local leftComponent = uevrUtils.createStaticMeshComponent("StaticMesh /Engine/BasicShapes/Cube.Cube")
-	local leftConnected = controllers.attachComponentToController(hand, leftComponent)
-	uevrUtils.set_component_relative_transform(leftComponent, nil, nil, {X=0.003, Y=0.003, Z=0.003})
+	local fAssetData = assetRegistryHelper:CreateAssetData(leftComponent.StaticMesh, true)
+	debugModule.dump(fAssetData)
+	fAssetData.ObjectPath = uevrUtils.fname_from_string("/Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword")
+	fAssetData.PackageName = uevrUtils.fname_from_string("/Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword")
+	fAssetData.PackagePath = uevrUtils.fname_from_string("/Game/Environment/Hogwarts/Meshes/Statues")
+	fAssetData.AssetName = uevrUtils.fname_from_string("SM_HW_Armor_Sword")
+	fAssetData.AssetClass = uevrUtils.fname_from_string("StaticMesh")
+	debugModule.dump(fAssetData)
+	print("\nGetting Info\n")
+	print(assetRegistryHelper:IsValid(fAssetData),"\n")
+	print(assetRegistryHelper:IsUAsset(fAssetData),"\n")
+	print(assetRegistryHelper:IsRedirector(fAssetData),"\n")
+	print(assetRegistryHelper:IsAssetLoaded(fAssetData),"\n")
+	-- bool IsValid(const FAssetData& InAssetData);
+    -- bool IsUAsset(const FAssetData& InAssetData);
+    -- bool IsRedirector(const FAssetData& InAssetData);
+    -- bool IsAssetLoaded(const FAssetData& InAssetData);
+
+    local fSoftObjectPath = assetRegistryHelper:ToSoftObjectPath(fAssetData);
+	print("Soft Object Path",fSoftObjectPath,"\n")
+	debugModule.dump(fSoftObjectPath)
+	local asset1 = kismet_system_library:LoadAsset_Blocking(fSoftObjectPath)
+	print(asset1, "\n")
+	--local asset2 = kismet_system_library:LoadAsset_Blocking(kismet_system_library:Conv_SoftObjPathToSoftObjRef(fSoftObjectPath))
+	--print(asset2, "\n")
+
+	print("Getting asset\n")
+	local object = assetRegistryHelper:GetAsset(fAssetData) --crashes when assetRegistryHelper:IsAssetLoaded(fAssetData) is false
+	print("Got asset\n")
+	print(object,"\n")
+	print("Debug print\n")
+	debugModule.dump(object)
+	print("Done printing\n")
+	-- local leftComponent = uevrUtils.createStaticMeshComponent("StaticMesh /Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword")
+	-- local fAssetData = assetRegistryHelper:CreateAssetData(leftComponent.StaticMesh, true)
+	-- debugModule.dump(fAssetData)
+
+	local component = uevrUtils.create_component_of_class("Class /Script/Engine.StaticMeshComponent")
+	if component ~= nil then
+		local staticMesh = object
+		if staticMesh ~= nil then
+			component:SetStaticMesh(staticMesh)				
+		else
+			print("Static Mesh not found\n")
+		end
+		local leftConnected = controllers.attachComponentToController(0, component)
+	else
+		print("StaticMeshComponent not created\n")
+	end
+	
+
+-- struct FAssetData
+-- {
+    -- FName ObjectPath;                                                                 // 0x0000 (size: 0x8)
+    -- FName PackageName;                                                                // 0x0008 (size: 0x8)
+    -- FName PackagePath;                                                                // 0x0010 (size: 0x8)
+    -- FName AssetName;                                                                  // 0x0018 (size: 0x8)
+    -- FName AssetClass;                                                                 // 0x0020 (size: 0x8)
+
+-- }; // Size: 0x60
+
+	-- NameProperty ObjectPath=/Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword
+	-- NameProperty PackageName=/Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword
+	-- NameProperty PackagePath=/Game/Environment/Hogwarts/Meshes/Statues
+	-- NameProperty AssetName=SM_HW_Armor_Sword
+	-- NameProperty AssetClass=StaticMesh
+	
+	-- NameProperty ObjectPath=/Engine/BasicShapes/Cube.Cube
+	-- NameProperty PackageName=/Engine/BasicShapes/Cube
+	-- NameProperty PackagePath=/Engine/BasicShapes
+	-- NameProperty AssetName=Cube
+	-- NameProperty AssetClass=StaticMesh
+	--const UClass* Class = UStaticMesh::StaticClass();
+	-- local smClass = uevrUtils.get_class("Class /Script/Engine.StaticMesh")
+	-- local assetData = {}
+	-- print("before\n")
+	-- assetRegistry:GetAssetsByClass(uevrUtils.fname_from_string("Class /Script/Engine.StaticMesh"), assetData, true)
+	-- print("after\n")
+	-- print(#assetData,"\n")
+	-- local assetRegistry = uevrUtils.find_first_of("Class /Script/AssetRegistry.AssetRegistry",  true)
+	-- print(assetRegistry,"\n")
+	-- local array = {}
+	-- local assetData = assetRegistry:GetAssetByObjectPath(uevrUtils.fname_from_string("/Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword"), false)
+	-- print("Here",assetData,"\n")
+	-- assetRegistry:GetAllAssets(array, false)
+	-- print(array, #array,"\n")
+	
+	--"Class /Script/AssetRegistry.AssetRegistry"
+	-- local object = kismet_system_library:LoadAsset_Blocking(kismet_system_library:MakeSoftObjectPath("/Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword"))
+	-- print(object)
+	-- object = kismet_system_library:LoadAsset_Blocking(kismet_system_library:MakeSoftObjectPath("/Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword"))
+	-- print(object)
+	-- object = kismet_system_library:LoadAsset_Blocking(kismet_system_library:MakeSoftObjectPath("StaticMesh /Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword"))
+	-- print(object)
+end
+
+
+
+function connectCube(hand)
+	--doLoadAsset()
+	local staticMesh = uevrUtils.getLoadedAsset("StaticMesh /Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword")
+	--local staticMesh = uevrUtils.getLoadedAsset("StaticMesh /Engine/BasicShapes/Cube.Cube")
+	
+--debugModule.dump(staticMesh)	
+
+	local leftComponent = uevrUtils.createStaticMeshComponent("StaticMesh /Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword")--"StaticMesh /Engine/BasicShapes/Cube.Cube")
+	local leftConnected = controllers.attachComponentToController(0, leftComponent)
+	
+	-- --LoadAsset("/Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword")
+	-- --delay(3000, function()
+	-- local leftComponent = uevrUtils.createStaticMeshComponent("StaticMesh /Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword")--"StaticMesh /Engine/BasicShapes/Cube.Cube")
+	-- local leftConnected = controllers.attachComponentToController(hand, leftComponent)
+	-- --uevrUtils.set_component_relative_transform(leftComponent, nil, nil, {X=0.03, Y=0.03, Z=0.03})
+	-- uevrUtils.set_component_relative_transform(leftComponent, nil, {Pitch=90, Yaw=0, Roll=0}, {X=0.8, Y=0.8, Z=0.8})
+	-- leftComponent:SetCollisionEnabled(3, true)
+	-- --end)
 end
 
 function initLevel()
@@ -137,7 +332,8 @@ function initLevel()
 	controllers.createController(2) 
 	
 	wand.reset()
---	connectCube(1)
+	hands.reset()
+	--connectCube(0)
 	
 	flickerFixer.create()
 end
@@ -298,7 +494,7 @@ end
 function onHandednessChanged(isLeftHanded)
 	print("Is Left handed",isLeftHanded,"\n")
 	wand.disconnect()
-	wand.connect(mounts.getMountPawn(pawn), isLeftHanded and 0 or 1)
+	connectWand()
 end
 
 function handednessCheck()
@@ -485,6 +681,46 @@ function handleFieldGuidePageChange(currentTabIndex)
 
 end
 
+function connectWand()
+	if showHands and hands.exists() then
+		wand.connectToSocket(mounts.getMountPawn(pawn), hands.getHandComponent(isLeftHanded and 0 or 1), "WandSocket", hands.getSocketOffset())		
+	else
+		wand.connectToController(mounts.getMountPawn(pawn), isLeftHanded and 0 or 1)
+	end
+end
+
+local g_shoulderGripOn = false
+function handleBrokenControllers(pawn, state, isLeftHanded)
+	local gripButton = XINPUT_GAMEPAD_RIGHT_SHOULDER
+	if isLeftHanded then
+		gripButton = XINPUT_GAMEPAD_LEFT_SHOULDER
+	end
+	if not g_shoulderGripOn and uevrUtils.isButtonPressed(state, gripButton)  then
+		g_shoulderGripOn = true
+		local headLocation = controllers.getControllerLocation(2)
+		local handLocation = controllers.getControllerLocation(isLeftHanded and 0 or 1)
+		if headLocation ~= nil and handLocation ~= nil then
+			local distance = kismet_math_library:Vector_Distance(headLocation, handLocation)
+			--print(distance,"\n")
+			if distance < 30 then	
+				wand.connectAltWand(pawn, isLeftHanded and 0 or 1)
+				if showHands then
+					wand.disconnect()
+					wand.reset()
+					hands.destroyHands()
+					hands.reset()
+				end
+			end
+		end
+	elseif g_shoulderGripOn and uevrUtils.isButtonNotPressed(state, gripButton) then
+		delay(1000, function()
+			g_shoulderGripOn = false
+		end)
+	end
+
+end
+
+
 function on_lazy_poll()
 	snapAngle = uevrUtils.PositiveIntegerMask(uevr.params.vr:get_mod_value("VR_SnapturnTurnAngle"))
 	useSnapTurn = uevr.params.vr.is_snap_turn_enabled()
@@ -503,13 +739,18 @@ function on_lazy_poll()
 	preGameStateCheck()
 	mediaPlayerCheck()
 	handednessCheck()
-	if not wand.isConnected() then
-		wand.connect(mounts.getMountPawn(pawn), isLeftHanded and 0 or 1)
+	
+	if showHands and not hands.exists() then
+		hands.create(pawn)
 	end
+
+	if not wand.isConnected() then
+		connectWand()
+	end
+	
 	if manualHideWand then
 		wand.updateVisibility(mounts.getMountPawn(pawn), g_isPregame or isInMenu or isInCinematic or not mounts.isWalking() )
 	end
-	
 	
 	if useVolumetricFog ~= nil and g_lastVolumetricFog ~= useVolumetricFog then 
 		if useVolumetricFog then
@@ -524,6 +765,15 @@ function on_lazy_poll()
 	if targetingMode == 0 and pc ~= nil then
 		pc:ActivateAutoTargetSense(false, true)
 	end
+	
+	-- local wandPosition = wand.getPosition()
+	-- local handPosition = hands.getPosition(1)
+	-- if wandPosition ~= nil and handPosition ~= nil then
+		-- distance = kismet_math_library:Vector_Distance(wandPosition, handPosition)
+		-- print("Distance is",distance,"\n")
+		-- wand.updateOffsetPosition(handPosition)
+	-- end
+
 end
 
 function on_level_change(level)
@@ -580,7 +830,6 @@ function on_post_calculate_stereo_view_offset(device, view_index, world_to_meter
 		-- --vrBody:K2_SetWorldLocationAndRotation(position, rotation, false, reusable_hit_result, false) 
 		-- vrBody:K2_SetWorldLocation(position, false, reusable_hit_result, false) 
 	-- end
-	updateHands()
 
 end
 	
@@ -597,7 +846,11 @@ function on_xinput_get_state(retval, user_index, state)
 			wand.handleInput(pawn, state, g_isLeftHanded)
 		end
 		
-		wand.handleBrokenWand(mounts.getMountPawn(pawn), state, g_isLeftHanded)		
+		if showHands then
+			hands.handleInput(state, wand.isVisible())	
+		end
+		
+		handleBrokenControllers(mounts.getMountPawn(pawn), state, g_isLeftHanded)	
 	end
 end
 
@@ -698,7 +951,7 @@ function hookLateFunctions()
 		end)
 				
 		wand.registerLateHooks()
-				
+						
 		if g_isPregame then
 			RegisterHook("/Game/UI/HYDRA/UI_BP_EULA.UI_BP_EULA_C:AcceptClicked", function(self)
 				print("UI_BP_EULA.UI_BP_EULA_C:AcceptClicked called\n")
@@ -767,6 +1020,13 @@ RegisterHook("/Script/Phoenix.UIManager:ExitFieldGuideWithReason", function(self
 	uevrUtils.set_2D_mode(false)
 	setLocomotionMode(locomotionMode)
 	enableVRCameraOffset = true
+	--always updating hands here until we can find a specific call for glove changes
+	if showHands then
+		wand.disconnect()
+		wand.reset()
+		hands.destroyHands()
+		hands.reset()
+	end
 end)
 
 RegisterHook("/Script/Phoenix.UIManager:MissionFailScreenLoaded", function(self)	
@@ -911,249 +1171,38 @@ RegisterHook("/Script/Phoenix.BrewingSite:BeginBrewingPotion", function(self)
 end)
 
 
-function overrideCharacterOpacity()
-	if uevrUtils.validate_object(pawn) and uevrUtils.validate_object(pawn.Mesh) then
-		local propertyName = "FINALOPACITY"
-		local propertyFName = uevrUtils.fname_from_string(propertyName)	
-		local value = 1.0
-		local materials = pawn.Mesh.OverrideMaterials
-		for i, material in ipairs(materials) do
-			--local oldValue = material:K2_GetScalarParameterValue(propertyFName)
-			material:SetScalarParameterValue(propertyFName, value)
---			material.Parent:SetScalarParameterValue(propertyFName, value)
-			--local newValue = material:K2_GetScalarParameterValue(propertyFName)
-			--print("Child Material:",i, material:get_full_name(), oldValue, newValue,"\n")
-		end
+-- function overrideCharacterOpacity()
+	-- if uevrUtils.validate_object(pawn) and uevrUtils.validate_object(pawn.Mesh) then
+		-- local propertyName = "FINALOPACITY"
+		-- local propertyFName = uevrUtils.fname_from_string(propertyName)	
+		-- local value = 1.0
+		-- local materials = pawn.Mesh.OverrideMaterials
+		-- for i, material in ipairs(materials) do
+			-- --local oldValue = material:K2_GetScalarParameterValue(propertyFName)
+			-- material:SetScalarParameterValue(propertyFName, value)
+-- --			material.Parent:SetScalarParameterValue(propertyFName, value)
+			-- --local newValue = material:K2_GetScalarParameterValue(propertyFName)
+			-- --print("Child Material:",i, material:get_full_name(), oldValue, newValue,"\n")
+		-- end
 		
-			-- children = pawn.Mesh.AttachChildren
-			-- if children ~= nil then
-				-- for i, child in ipairs(children) do
-					-- --if child:is_a(static_mesh_component_c) then
-						-- local materials = child.OverrideMaterials
-						-- for i, material in ipairs(materials) do
-							-- --local oldValue = material:K2_GetScalarParameterValue(propertyFName)
-							-- material:SetScalarParameterValue(propertyFName, value)
-							-- --local newValue = material:K2_GetScalarParameterValue(propertyFName)
-							-- --print("Child Material:",i, material:get_full_name(), oldValue, newValue,"\n")
-						-- end
-					-- --end
+			-- -- children = pawn.Mesh.AttachChildren
+			-- -- if children ~= nil then
+				-- -- for i, child in ipairs(children) do
+					-- -- --if child:is_a(static_mesh_component_c) then
+						-- -- local materials = child.OverrideMaterials
+						-- -- for i, material in ipairs(materials) do
+							-- -- --local oldValue = material:K2_GetScalarParameterValue(propertyFName)
+							-- -- material:SetScalarParameterValue(propertyFName, value)
+							-- -- --local newValue = material:K2_GetScalarParameterValue(propertyFName)
+							-- -- --print("Child Material:",i, material:get_full_name(), oldValue, newValue,"\n")
+						-- -- end
+					-- -- --end
 					
-				-- end
-			-- end
-
-	end
-end
-
-
--- function createPoseableComponent(skeletalMeshComponent)
-	-- local poseableComponent = nil
-	-- if skeletalMeshComponent ~= nil then
-		-- poseableComponent = uevrUtils.createPoseableMeshFromSkeletalMesh(skeletalMeshComponent)
-		-- --poseableComponent:K2_AttachTo(vrBody, uevrUtils.fname_from_string(""), 0, false)
-		-- controllers.attachComponentToController(1, poseableComponent)
-		-- uevrUtils.set_component_relative_transform(poseableComponent, {X=0, Y=0, Z=0}, {Pitch=0, Yaw=-90, Roll=0})		
-		-- poseableComponent:SetVisibility(false, true)
-		-- poseableComponent:SetHiddenInGame(true, true)
-		-- --delay(1000, function() 
-			-- poseableComponent:SetVisibility(true, true) 
-			-- poseableComponent:SetHiddenInGame(false, true)
-		-- --end)
-		-- --poseableComponent:SetHiddenInGame(false,true)
-		-- --skeletalMeshComponent:SetMasterPoseComponent(poseableComponent, true)
-		-- --poseableComponent.bUseAttachParentBound = true
-		
-		-- --fixes flickering but > 1 causes a pefromance hit with dynamic shadows
-		-- poseableComponent.BoundsScale = 8.0
-		-- poseableComponent.bCastDynamicShadow=false
-		
-		-- delay(500,function()
-			-- local materials = skeletalMeshComponent:GetMaterials()
-			-- uevrUtils.print("Found " .. #materials .. " materials on skeletalMeshComponent")
-			-- for i, material in ipairs(materials) do				
-				-- poseableComponent:SetMaterial(i, material)
-			-- end
-		-- end)
-	-- else
-		-- print("SkeletalMeshComponent was not valid\n")
-	-- end
-	-- updatePoseableComponent(poseableComponent)
-	-- return poseableComponent
--- end
-
-
-function updateHands()
-	-- if armsComponent ~= nil then
-		-- updatePoseableComponent(armsComponent)
-	-- end
-	if glovesComponent ~= nil then
-		--updatePoseableComponent(glovesComponent)
-		--updateVisualSkeleton(glovesComponent)
-	end
-end
-
--- function updatePoseableComponent(poseableComponent)
-	-- if poseableComponent ~= nil then
-		-- local boneSpace = 0
-		
-		-- local boneFName = uevrUtils.fname_from_string("RightHand")		
-		-- local location = controllers.getControllerLocation(1)
-		-- local rotation = controllers.getControllerRotation(1)		
-		-- rotation.Pitch = -rotation.Pitch 
-		-- rotation.Yaw = rotation.Yaw + 180 
-		-- rotation.Roll = -rotation.Roll
-		-- local forwardVector = kismet_math_library:GetForwardVector(rotation)
-		-- location = location + forwardVector * 6
-
-		-- location = poseableComponent:GetBoneLocationByName(poseableComponent:GetBoneName(1), boneSpace);
-
-		-- --poseableComponent:SetBoneLocationByName(boneFName, location, boneSpace)
-		-- --poseableComponent:SetBoneRotationByName(boneFName, rotation, boneSpace)
-	
-
-		-- -- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("RightShoulder"), location, boneSpace);
-		-- -- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("RightArm"), location, boneSpace);
-		-- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("RightForeArm"), location, boneSpace);
-
-		-- local pTransform = poseableComponent:GetBoneTransformByName(poseableComponent:GetBoneName(1), boneSpace)
-		-- --x is left/right   y is up/down   z is back/forth
-		-- local cTransform = kismet_math_library:MakeTransform(uevrUtils.vector(0, 0, -30), uevrUtils.rotator(-90, 0, -90), uevrUtils.vector(1.2, 1.2, 1.2))
-		-- animation.setBoneSpaceLocalTransform(poseableComponent, uevrUtils.fname_from_string("RightForeArm"), cTransform, boneSpace, pTransform)
-		-- --setBoneSpaceLocalRotator(poseableComponent, uevrUtils.fname_from_string("RightForeArm"), uevrUtils.rotator(-90, 0, 0), boneSpace, pTransform)
-		-- -- local miniScale = 0.0001
--- -- --		poseableComponent:SetBoneScaleByName(poseableComponent:GetBoneName(1), vector_3f(miniScale, miniScale, miniScale), boneSpace);
--- -- --		poseableComponent:SetBoneScaleByName(uevrUtils.fname_from_string("RightShoulder"), vector_3f(miniScale, miniScale, miniScale), boneSpace);
-		-- -- -- poseableComponent:SetBoneScaleByName(uevrUtils.fname_from_string("RightArm"), vector_3f(miniScale, miniScale, miniScale), boneSpace);
-		-- -- -- poseableComponent:SetBoneScaleByName(uevrUtils.fname_from_string("RightForeArm"), vector_3f(miniScale, miniScale, miniScale), boneSpace);
-		-- -- poseableComponent:SetBoneScaleByName(boneFName, vector_3f(1.2, 1.2, 1.2), boneSpace);		
-	
-	
-	
-		-- -- boneFName = uevrUtils.fname_from_string("LeftHand")		
-		-- -- location = controllers.getControllerLocation(0)
-		-- -- rotation = controllers.getControllerRotation(0)		
-		-- -- rotation.Roll = rotation.Roll + 180 
-		
-		-- -- location = poseableComponent:GetBoneLocationByName(poseableComponent:GetBoneName(1), boneSpace);
-
-		-- -- poseableComponent:SetBoneLocationByName(boneFName, location, boneSpace)
-		-- -- --poseableComponent:SetBoneRotationByName(boneFName, rotation, boneSpace)
-		
-		-- -- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("LeftShoulder"), location, boneSpace);
-		-- -- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("LeftArm"), location, boneSpace);
-		-- -- -- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("LeftForeArm"), location, boneSpace);
-
-		-- poseableComponent:SetBoneScaleByName(uevrUtils.fname_from_string("LeftShoulder"), vector_3f(0, 0, 0), boneSpace);		
+				-- -- end
+			-- -- end
 
 	-- end
 -- end
-
--- function updatePoseableComponent(poseableComponent)
-	-- if poseableComponent ~= nil then
-		-- local boneSpace = 0
-		
-		-- local boneFName = uevrUtils.fname_from_string("RightHand")		
-		-- local location = controllers.getControllerLocation(1)
-		-- local rotation = controllers.getControllerRotation(1)		
-		-- rotation.Pitch = -rotation.Pitch 
-		-- rotation.Yaw = rotation.Yaw + 180 
-		-- rotation.Roll = -rotation.Roll
-		-- local forwardVector = kismet_math_library:GetForwardVector(rotation)
-		-- location = location + forwardVector * 6
-		-- poseableComponent:SetBoneLocationByName(boneFName, location, boneSpace)
-		-- poseableComponent:SetBoneRotationByName(boneFName, rotation, boneSpace)
-	
-		-- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("RightShoulder"), location, boneSpace);
-		-- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("RightArm"), location, boneSpace);
-		-- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("RightForeArm"), location, boneSpace);
-
-		-- local miniScale = 0.0001
--- --		poseableComponent:SetBoneScaleByName(poseableComponent:GetBoneName(1), vector_3f(miniScale, miniScale, miniScale), boneSpace);
-		-- poseableComponent:SetBoneScaleByName(uevrUtils.fname_from_string("RightShoulder"), vector_3f(miniScale, miniScale, miniScale), boneSpace);
-		-- poseableComponent:SetBoneScaleByName(uevrUtils.fname_from_string("RightArm"), vector_3f(miniScale, miniScale, miniScale), boneSpace);
-		-- poseableComponent:SetBoneScaleByName(uevrUtils.fname_from_string("RightForeArm"), vector_3f(miniScale, miniScale, miniScale), boneSpace);
-		-- poseableComponent:SetBoneScaleByName(boneFName, vector_3f(1.2, 1.2, 1.2), boneSpace);		
-	
-		-- boneFName = uevrUtils.fname_from_string("LeftHand")		
-		-- location = controllers.getControllerLocation(0)
-		-- rotation = controllers.getControllerRotation(0)		
-		-- rotation.Roll = rotation.Roll + 180 
-		-- poseableComponent:SetBoneLocationByName(boneFName, location, boneSpace)
-		-- poseableComponent:SetBoneRotationByName(boneFName, rotation, boneSpace)
-		
-		-- -- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("LeftShoulder"), location, boneSpace);
-		-- -- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("LeftArm"), location, boneSpace);
-		-- -- poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("LeftForeArm"), location, boneSpace);
-
-	-- end
--- end
-
-
-function createPoseableHands()
-	--local skeletalMeshComponent = uevrUtils.find_instance_of("Class /Script/Engine.SkeletalMeshComponent", "Gloves")
-	local skeletalMeshComponent = nil
-	local children = pawn.Mesh.AttachChildren
-    for i, child in ipairs(children) do
-		if  string.find(child:get_full_name(), "Gloves") then
-			skeletalMeshComponent = child
-		end
-	end
-
-	local poseableComponent = nil
-	if skeletalMeshComponent ~= nil then
-		poseableComponent = uevrUtils.createPoseableMeshFromSkeletalMesh(skeletalMeshComponent)
-		--poseableComponent = copyPoseableMeshFromSkeletalMesh(skeletalMeshComponent)
-		poseableComponent:K2_AttachTo(skeletalMeshComponent, uevrUtils.fname_from_string(""), 0, false)
-		poseableComponent:SetVisibility(false,true)
-	--controllers.attachComponentToController(0, poseableComponent)
-		--uevrUtils.set_component_relative_transform(meshComponent, {X=10, Y=10, Z=10})			
-
-		--skeletalMeshComponent:SetMasterPoseComponent(poseableComponent, true)
-	end
-	return poseableComponent
-end
-
-function updatePoseableComponent_old(poseableComponent)
-	if poseableComponent ~= nil then
-		local boneSpace = 0
-		
-		local boneFName = uevrUtils.fname_from_string("RightHand")		
-		local location = controllers.getControllerLocation(1)
-		local rotation = controllers.getControllerRotation(1)		
-		rotation.Pitch = -rotation.Pitch 
-		rotation.Yaw = rotation.Yaw + 180 
-		rotation.Roll = -rotation.Roll
-		poseableComponent:SetBoneLocationByName(boneFName, location, boneSpace)
-		poseableComponent:SetBoneRotationByName(boneFName, rotation, boneSpace)
-		
-		poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("RightShoulder"), location, boneSpace);
-		poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("RightArm"), location, boneSpace);
-		poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("RightForeArm"), location, boneSpace);
-
-		local miniScale = 0.0001
-		poseableComponent:SetBoneScaleByName(poseableComponent:GetBoneName(1), vector_3f(miniScale, miniScale, miniScale), boneSpace);
-		poseableComponent:SetBoneScaleByName(boneFName, vector_3f(1, 1, 1), boneSpace);		
-
-		if debugHands then
-			print(location.X,location.Y,location.Z,"\n")
-		end
-		
-		boneFName = uevrUtils.fname_from_string("LeftHand")		
-		location = controllers.getControllerLocation(0)
-		rotation = controllers.getControllerRotation(0)		
-		rotation.Roll = rotation.Roll + 180 
-		poseableComponent:SetBoneLocationByName(boneFName, location, boneSpace)
-		poseableComponent:SetBoneRotationByName(boneFName, rotation, boneSpace)
-	end
-end
-
-function logMeshComponentChildren(meshComponent)
-	local children = meshComponent.AttachChildren
-    for i, child in ipairs(children) do
-		uevrUtils.print(child:get_full_name())
-	end
-
-end
-
 
 
 
@@ -1163,7 +1212,7 @@ RegisterKeyBind(Key.F1, function()
     isFP = not isFP
 	updatePlayer()
 	if isFP then
-		wand.connect(mounts.getMountPawn(pawn), g_isLeftHanded and 0 or 1)
+		connectWand()
 		setLocomotionMode(locomotionMode)
 	else
 		wand.disconnect()
@@ -1174,8 +1223,13 @@ end)
 local inNativeMode = true
 RegisterKeyBind(Key.F2, function()
     print("F2 pressed\n")
-	
-	hands.create(pawn)
+	ExecuteInGameThread( function()
+		connectCube(0)
+	end)
+
+	-- ExecuteInGameThread( function()
+		-- hands.changeGloveMaterials()
+	-- end)
 	-- ExecuteInGameThread( function()
 		-- --vrBody = uevrUtils.createStaticMeshComponent("StaticMesh /Engine/EngineMeshes/Sphere.Sphere")
 		-- rightGlovesComponent = animation.createPoseableComponent(animation.getChildSkeletalMeshComponent(pawn.Mesh, "Gloves"))
@@ -1299,18 +1353,20 @@ RegisterKeyBind(Key.F9, function()
 	Json.saveTable(targetingMode, "VRFPSettings.json", "targetingModeSaved")
 end)
 
+
 local currentHand = 1
+local currentIndex = 1
+local currentFinger = 1
 RegisterKeyBind(Key.NUM_EIGHT, function()
     print("NUM8 pressed\n")
-	hands.adjustLocation(currentHand, 3, 2)
-	-- setVisualSkeletonBoneScale(glovesComponent, boneIndex, 0.003)
-	-- boneIndex = boneIndex + 1
-	-- setVisualSkeletonBoneScale(glovesComponent, boneIndex, 0.006)
+	--hands.adjustLocation(currentHand, 3, 2)
+	ExecuteInGameThread( function() hands.setFingerAngles(currentFinger, currentIndex, 0, 5) end)
 end)
 
 RegisterKeyBind(Key.NUM_TWO, function()
     print("NUM2 pressed\n")
-	hands.adjustLocation(currentHand, 3, -2)
+	--hands.adjustLocation(currentHand, 3, -2)
+	ExecuteInGameThread( function() hands.setFingerAngles(currentFinger, currentIndex, 0, -5) end)
 	-- setVisualSkeletonBoneScale(glovesComponent, boneIndex, 0.003)
 	-- boneIndex = boneIndex - 1
 	-- if boneIndex < 1 then boneIndex = 1 end
@@ -1319,181 +1375,85 @@ end)
 
 RegisterKeyBind(Key.NUM_SIX, function()
     print("NUM6 pressed\n")
-	hands.adjustLocation(currentHand, 1, 2)
+	--hands.adjustLocation(currentHand, 1, 2)
+	ExecuteInGameThread( function() hands.setFingerAngles(currentFinger, currentIndex, 1, 5) end)
 end)
 RegisterKeyBind(Key.NUM_FIVE, function()
     print("NUM6 pressed\n")
-	currentHand = (currentHand + 1) % 2
+	--currentHand = (currentHand + 1) % 2
+	currentFinger = currentFinger + 1
+	if currentFinger > 10 then currentFinger = 1 end
+	print("Current finger joint", currentFinger, currentIndex)
 end)
 RegisterKeyBind(Key.NUM_FOUR, function()
     print("NUM6 pressed\n")
-	hands.adjustLocation(currentHand, 1, -2)
+	--hands.adjustLocation(currentHand, 1, -2)
+	ExecuteInGameThread( function() hands.setFingerAngles(currentFinger, currentIndex, 1, -5) end)
 end)
 RegisterKeyBind(Key.NUM_NINE, function()
     print("NUM6 pressed\n")
-	hands.adjustLocation(currentHand, 2, 2)
+	--hands.adjustLocation(currentHand, 2, 2)
+	ExecuteInGameThread( function() hands.setFingerAngles(currentFinger, currentIndex, 2, 5) end)
 end)
 RegisterKeyBind(Key.NUM_THREE, function()
     print("NUM6 pressed\n")
-	hands.adjustLocation(currentHand, 2, -2)
+	--hands.adjustLocation(currentHand, 2, -2)
+	ExecuteInGameThread( function() hands.setFingerAngles(currentFinger, currentIndex, 2, -5) end)
+end)
+RegisterKeyBind(Key.NUM_ONE, function()
+    print("NUM0 pressed\n")
+	currentIndex = currentIndex + 1
+	if currentIndex > 3 then currentIndex = 1 end
+	print("Current finger joint", currentFinger, currentIndex)
 end)
 
--- [2025-03-28 16:47:53.7592097] [Lua] SkeletalMeshComponent /Game/Levels/Overland/Overland.Overland.PersistentLevel.BP_Biped_Player_C_2147460116.Customization.Hair
--- [2025-03-28 16:47:53.7592190] [Lua] SkeletalMeshComponent /Game/Levels/Overland/Overland.Overland.PersistentLevel.BP_Biped_Player_C_2147460116.Customization.Arms
--- [2025-03-28 16:47:53.7592277] [Lua] SkeletalMeshComponent /Game/Levels/Overland/Overland.Overland.PersistentLevel.BP_Biped_Player_C_2147460116.Customization.Robe
--- [2025-03-28 16:47:53.7592361] [Lua] SkeletalMeshComponent /Game/Levels/Overland/Overland.Overland.PersistentLevel.BP_Biped_Player_C_2147460116.Customization.Glasses
--- [2025-03-28 16:47:53.7592433] [Lua] SkeletalMeshComponent /Game/Levels/Overland/Overland.Overland.PersistentLevel.BP_Biped_Player_C_2147460116.Customization.Gloves
--- [2025-03-28 16:47:53.7592510] [Lua] SkeletalMeshComponent /Game/Levels/Overland/Overland.Overland.PersistentLevel.BP_Biped_Player_C_2147460116.Customization.Hat
--- [2025-03-28 16:47:53.7592585] [Lua] SkeletalMeshComponent /Game/Levels/Overland/Overland.Overland.PersistentLevel.BP_Biped_Player_C_2147460116.Customization.Scarf
--- [2025-03-28 16:47:53.7592657] [Lua] SkeletalMeshComponent /Game/Levels/Overland/Overland.Overland.PersistentLevel.BP_Biped_Player_C_2147460116.Customization.Upper
--- [2025-03-28 16:47:53.7592732] [Lua] SkeletalMeshComponent /Game/Levels/Overland/Overland.Overland.PersistentLevel.BP_Biped_Player_C_2147460116.Customization.Lower
--- [2025-03-28 16:47:53.7592802] [Lua] SkeletalMeshComponent /Game/Levels/Overland/Overland.Overland.PersistentLevel.BP_Biped_Player_C_2147460116.Customization.Socks
--- [2025-03-28 16:47:53.7592869] [Lua] SkeletalMeshComponent /Game/Levels/Overland/Overland.Overland.PersistentLevel.BP_Biped_Player_C_2147460116.Customization.Shoes
 
--- [2025-03-29 18:07:12.0525646] [Lua] 147		bones[2025-03-29 18:07:12.0526139] [Lua] 1		IK_Spine3		
--- [2025-03-29 18:07:12.0526545] [Lua] 2		IK_RightHand		
--- [2025-03-29 18:07:12.0526843] [Lua] 3		SKT_FX_Reference2		
--- [2025-03-29 18:07:12.0527124] [Lua] 4		SKT_FX_Reference1		
--- [2025-03-29 18:07:12.0527392] [Lua] 5		SKT_Reference		
--- [2025-03-29 18:07:12.0527685] [Lua] 6		IK_LeftHand		
--- [2025-03-29 18:07:12.0528061] [Lua] 7		SKT_HeadCamera		
--- [2025-03-29 18:07:12.0528345] [Lua] 8		Hips		
--- [2025-03-29 18:07:12.0528616] [Lua] 9		RightUpLeg		
--- [2025-03-29 18:07:12.0528885] [Lua] 10		RightLeg		
--- [2025-03-29 18:07:12.0529341] [Lua] 11		RightLegTwist1		
--- [2025-03-29 18:07:12.0529859] [Lua] 12		RightFoot		
--- [2025-03-29 18:07:12.0530407] [Lua] 13		RightToeBase		
--- [2025-03-29 18:07:12.0530942] [Lua] 14		RightToeBaseEnd		
--- [2025-03-29 18:07:12.0531405] [Lua] 15		RightUpLegTwist1		
--- [2025-03-29 18:07:12.0531805] [Lua] 16		RightUpLegTwist2		
--- [2025-03-29 18:07:12.0532100] [Lua] 17		SKT_FX_Hips		
--- [2025-03-29 18:07:12.0532385] [Lua] 18		Spine		
--- [2025-03-29 18:07:12.0532666] [Lua] 19		Spine1		
--- [2025-03-29 18:07:12.0532933] [Lua] 20		Spine2		
--- [2025-03-29 18:07:12.0533205] [Lua] 21		Spine3		
--- [2025-03-29 18:07:12.0533484] [Lua] 22		SKT_Back		
--- [2025-03-29 18:07:12.0533754] [Lua] 23		SKT_Chest		
--- [2025-03-29 18:07:12.0534020] [Lua] 24		LeftShoulder		
--- [2025-03-29 18:07:12.0534331] [Lua] 25		LeftArm		
--- [2025-03-29 18:07:12.0534619] [Lua] 26		LeftForeArm		
--- [2025-03-29 18:07:12.0534936] [Lua] 27		LeftForeArmTwist3		
--- [2025-03-29 18:07:12.0535399] [Lua] 28		LeftForeArmTwist1		
--- [2025-03-29 18:07:12.0535829] [Lua] 29		LeftHand		
--- [2025-03-29 18:07:12.0536144] [Lua] 30		LeftInHandPinky		
--- [2025-03-29 18:07:12.0536414] [Lua] 31		LeftHandPinky1		
--- [2025-03-29 18:07:12.0536671] [Lua] 32		LeftHandPinky2		
--- [2025-03-29 18:07:12.0536933] [Lua] 33		LeftHandPinky3		
--- [2025-03-29 18:07:12.0537202] [Lua] 34		LeftHandPinky4		
--- [2025-03-29 18:07:12.0537462] [Lua] 35		SKT_LeftHand		
--- [2025-03-29 18:07:12.0537736] [Lua] 36		LeftInHandIndex		
--- [2025-03-29 18:07:12.0538005] [Lua] 37		LeftHandIndex1		
--- [2025-03-29 18:07:12.0538267] [Lua] 38		LeftHandIndex2		
--- [2025-03-29 18:07:12.0538576] [Lua] 39		LeftHandIndex3		
--- [2025-03-29 18:07:12.0538834] [Lua] 40		LeftHandIndex4		
--- [2025-03-29 18:07:12.0539091] [Lua] 41		LeftInHandRing		
--- [2025-03-29 18:07:12.0539352] [Lua] 42		LeftHandRing1		
--- [2025-03-29 18:07:12.0539613] [Lua] 43		LeftHandRing2		
--- [2025-03-29 18:07:12.0539869] [Lua] 44		LeftHandRing3		
--- [2025-03-29 18:07:12.0540123] [Lua] 45		LeftHandRing4		
--- [2025-03-29 18:07:12.0540387] [Lua] 46		SKT_FX_LeftHand		
--- [2025-03-29 18:07:12.0540646] [Lua] 47		LeftHandThumb1		
--- [2025-03-29 18:07:12.0540903] [Lua] 48		LeftHandThumb2		
--- [2025-03-29 18:07:12.0541157] [Lua] 49		LeftHandThumb3		
--- [2025-03-29 18:07:12.0541412] [Lua] 50		LeftHandThumb4		
--- [2025-03-29 18:07:12.0541673] [Lua] 51		LeftInHandMiddle		
--- [2025-03-29 18:07:12.0541928] [Lua] 52		LeftHandMiddle1		
--- [2025-03-29 18:07:12.0542187] [Lua] 53		LeftHandMiddle2		
--- [2025-03-29 18:07:12.0542460] [Lua] 54		LeftHandMiddle3		
--- [2025-03-29 18:07:12.0542724] [Lua] 55		LeftHandMiddle4		
--- [2025-03-29 18:07:12.0542980] [Lua] 56		LeftForeArmTwist2		
--- [2025-03-29 18:07:12.0543235] [Lua] 57		LeftArmTwist1		
--- [2025-03-29 18:07:12.0543498] [Lua] 58		LeftArmTwist2		
--- [2025-03-29 18:07:12.0543760] [Lua] 59		Neck		
--- [2025-03-29 18:07:12.0544011] [Lua] 60		Neck1		
--- [2025-03-29 18:07:12.0544272] [Lua] 61		head		
--- [2025-03-29 18:07:12.0544541] [Lua] 62		SKT_Head		
--- [2025-03-29 18:07:12.0544795] [Lua] 63		HeadEnd		
--- [2025-03-29 18:07:12.0545053] [Lua] 64		face		
--- [2025-03-29 18:07:12.0545310] [Lua] 65		eye_left		
--- [2025-03-29 18:07:12.0545564] [Lua] 66		nose		
--- [2025-03-29 18:07:12.0545859] [Lua] 67		jaw		
--- [2025-03-29 18:07:12.0546125] [Lua] 68		lip_corners		
--- [2025-03-29 18:07:12.0546378] [Lua] 69		lip_upper		
--- [2025-03-29 18:07:12.0546642] [Lua] 70		lip_lower		
--- [2025-03-29 18:07:12.0546894] [Lua] 71		eye_lid_right		
--- [2025-03-29 18:07:12.0547150] [Lua] 72		eye_lid_in_right		
--- [2025-03-29 18:07:12.0547574] [Lua] 73		eye_lid_out_right		
--- [2025-03-29 18:07:12.0547865] [Lua] 74		mouth_bag		
--- [2025-03-29 18:07:12.0548155] [Lua] 75		tongue_jaw		
--- [2025-03-29 18:07:12.0548423] [Lua] 76		tongue_01		
--- [2025-03-29 18:07:12.0548686] [Lua] 77		tongue_02		
--- [2025-03-29 18:07:12.0548944] [Lua] 78		tongue_03		
--- [2025-03-29 18:07:12.0549274] [Lua] 79		tongue_04		
--- [2025-03-29 18:07:12.0549731] [Lua] 80		tongue_05		
--- [2025-03-29 18:07:12.0550247] [Lua] 81		tongue_06		
--- [2025-03-29 18:07:12.0550699] [Lua] 82		teeth_lwr		
--- [2025-03-29 18:07:12.0551106] [Lua] 83		teeth_upr		
--- [2025-03-29 18:07:12.0551577] [Lua] 84		eye_right		
--- [2025-03-29 18:07:12.0551849] [Lua] 85		eye_lid_left		
--- [2025-03-29 18:07:12.0552123] [Lua] 86		eye_lid_in_left		
--- [2025-03-29 18:07:12.0552390] [Lua] 87		eye_lid_out_left		
--- [2025-03-29 18:07:12.0552655] [Lua] 88		RightShoulder		
--- [2025-03-29 18:07:12.0552917] [Lua] 89		RightArm		
--- [2025-03-29 18:07:12.0553178] [Lua] 90		RightArmTwist1		
--- [2025-03-29 18:07:12.0553459] [Lua] 91		RightForeArm		
--- [2025-03-29 18:07:12.0553781] [Lua] 92		RightHand		
--- [2025-03-29 18:07:12.0554060] [Lua] 93		SKT_FX_RightHand		
--- [2025-03-29 18:07:12.0554319] [Lua] 94		RightHandThumb1		
--- [2025-03-29 18:07:12.0554584] [Lua] 95		RightHandThumb2		
--- [2025-03-29 18:07:12.0554877] [Lua] 96		RightHandThumb3		
--- [2025-03-29 18:07:12.0555147] [Lua] 97		RightHandThumb4		
--- [2025-03-29 18:07:12.0555406] [Lua] 98		RightInHandMiddle		
--- [2025-03-29 18:07:12.0555664] [Lua] 99		RightHandMiddle1		
--- [2025-03-29 18:07:12.0555920] [Lua] 100		RightHandMiddle2		
--- [2025-03-29 18:07:12.0556186] [Lua] 101		RightHandMiddle3		
--- [2025-03-29 18:07:12.0556447] [Lua] 102		RightHandMiddle4		
--- [2025-03-29 18:07:12.0556720] [Lua] 103		SKT_RightHand		
--- [2025-03-29 18:07:12.0556979] [Lua] 104		RightInHandIndex		
--- [2025-03-29 18:07:12.0557239] [Lua] 105		RightHandIndex1		
--- [2025-03-29 18:07:12.0557501] [Lua] 106		RightHandIndex2		
--- [2025-03-29 18:07:12.0557762] [Lua] 107		RightHandIndex3		
--- [2025-03-29 18:07:12.0558038] [Lua] 108		RightHandIndex4		
--- [2025-03-29 18:07:12.0558303] [Lua] 109		RightInHandPinky		
--- [2025-03-29 18:07:12.0558733] [Lua] 110		RightHandPinky1		
--- [2025-03-29 18:07:12.0559030] [Lua] 111		RightHandPinky2		
--- [2025-03-29 18:07:12.0559298] [Lua] 112		RightHandPinky3		
--- [2025-03-29 18:07:12.0559578] [Lua] 113		RightHandPinky4		
--- [2025-03-29 18:07:12.0559860] [Lua] 114		RightInHandRing		
--- [2025-03-29 18:07:12.0560129] [Lua] 115		RightHandRing1		
--- [2025-03-29 18:07:12.0560408] [Lua] 116		RightHandRing2		
--- [2025-03-29 18:07:12.0560734] [Lua] 117		RightHandRing3		
--- [2025-03-29 18:07:12.0561136] [Lua] 118		RightHandRing4		
--- [2025-03-29 18:07:12.0561415] [Lua] 119		RightForeArmTwist3		
--- [2025-03-29 18:07:12.0561683] [Lua] 120		RightForeArmTwist2		
--- [2025-03-29 18:07:12.0561961] [Lua] 121		RightForeArmTwist1		
--- [2025-03-29 18:07:12.0562660] [Lua] 122		RightArmTwist2		
--- [2025-03-29 18:07:12.0562938] [Lua] 123		LeftUpLeg		
--- [2025-03-29 18:07:12.0563213] [Lua] 124		LeftLeg		
--- [2025-03-29 18:07:12.0563485] [Lua] 125		LeftLegTwist1		
--- [2025-03-29 18:07:12.0563762] [Lua] 126		LeftFoot		
--- [2025-03-29 18:07:12.0564032] [Lua] 127		LeftToeBase		
--- [2025-03-29 18:07:12.0564296] [Lua] 128		LeftToeBaseEnd		
--- [2025-03-29 18:07:12.0564558] [Lua] 129		LeftUpLegTwist1		
--- [2025-03-29 18:07:12.0564820] [Lua] 130		LeftUpLegTwist2		
--- [2025-03-29 18:07:12.0565122] [Lua] 131		SKT_Hips		
--- [2025-03-29 18:07:12.0565376] [Lua] 132		IK_Hips		
--- [2025-03-29 18:07:12.0565645] [Lua] 133		IK_LeftFoot		
--- [2025-03-29 18:07:12.0565917] [Lua] 134		IK_RightFoot		
--- [2025-03-29 18:07:12.0566384] [Lua] 135		IK_Head		
--- [2025-03-29 18:07:12.0566938] [Lua] 136		SKT_World1		
--- [2025-03-29 18:07:12.0567474] [Lua] 137		SKT_World2		
--- [2025-03-29 18:07:12.0568023] [Lua] 138		SKT_BroomCollision		
--- [2025-03-29 18:07:12.0568539] [Lua] 139		SKT_BeastCollision		
--- [2025-03-29 18:07:12.0569394] [Lua] 140		VB Head_IK_Head		
--- [2025-03-29 18:07:12.0569726] [Lua] 141		VB Spine3_IK_Spine3		
--- [2025-03-29 18:07:12.0570005] [Lua] 142		VB RightHand_IK_RightHand		
--- [2025-03-29 18:07:12.0570274] [Lua] 143		VB LeftHand_IK_LeftHand		
--- [2025-03-29 18:07:12.0570528] [Lua] 144		VB Hips_IK_Hips		
--- [2025-03-29 18:07:12.0570803] [Lua] 145		VB RightFoot_IK_RightFoot		
--- [2025-03-29 18:07:12.0571069] [Lua] 146		VB LeftFoot_IK_LeftFoot		
--- [2025-03-29 18:07:12.0571331] [Lua] 147		None		
+-- *** Property dump for object 'StaticMesh /Engine/BasicShapes/Cube.Cube ***
+
+-- (Class /Script/Engine.StaticMesh)
+-- StructProperty MinLOD=
+	-- IntProperty Default=0
+-- IntProperty ShadowMinLOD=-1
+-- BoolProperty bCastShadowAsBackfacedMinLOD=false
+-- FloatProperty LpvBiasMultiplier=1.0
+-- ArrayProperty StaticMaterials=nil
+-- FloatProperty LightmapUVDensity=356.39279174805
+-- IntProperty LightMapResolution=64
+-- IntProperty LightMapCoordinateIndex=1
+-- FloatProperty DistanceFieldSelfShadowBias=0.0
+-- ObjectProperty BodySetup=(BodySetup /Engine/BasicShapes/Cube.Cube.BodySetup_1)
+-- IntProperty LODForCollision=0
+-- BoolProperty bGenerateMeshDistanceField=false
+-- BoolProperty bStripComplexCollisionForConsole=false
+-- BoolProperty bHasNavigationData=true
+-- BoolProperty bSupportUniformlyDistributedSampling=false
+-- BoolProperty bSupportPhysicalMaterialMasks=false
+-- BoolProperty bSupportRayTracing=true
+-- BoolProperty bIsBuiltAtRuntime=false
+-- BoolProperty bAllowCPUAccess=false
+-- BoolProperty bSupportGpuUniformlyDistributedSampling=false
+-- ArrayProperty Sockets=nil
+-- StructProperty PositiveBoundsExtension=<0.0, 0.0, 0.0>
+-- StructProperty NegativeBoundsExtension=<0.0, 0.0, 0.0>
+-- StructProperty ExtendedBounds=
+	-- StructProperty Origin=<0.0, 0.0, 0.0>
+	-- StructProperty BoxExtent=<50.0, 50.0, 50.0>
+	-- FloatProperty SphereRadius=86.6025390625
+-- IntProperty ElementToIgnoreForTexFactor=-1
+-- ArrayProperty AssetUserData=nil
+-- ObjectProperty EditableMesh=nil
+-- ObjectProperty NavCollision=(NavCollision /Engine/BasicShapes/Cube.Cube.NavCollision_1)
+
+-- (Class /Script/Engine.StreamableRenderAsset)
+-- DoubleProperty ForceMipLevelsToBeResidentTimestamp=UNHANDLED_VALUE
+-- IntProperty NumCinematicMipLevels=0
+-- IntProperty StreamingIndex=-1
+-- IntProperty CachedCombinedLODBias=0
+-- BoolProperty NeverStream=false
+-- BoolProperty bGlobalForceMipLevelsToBeResident=false
+-- BoolProperty bHasStreamingUpdatePending=false
+-- BoolProperty bForceMiplevelsToBeResident=false
+-- BoolProperty bIgnoreStreamingMipBias=false
+-- BoolProperty bUseCinematicMipLevels=false
+
+-- (Class /Script/CoreUObject.Object)

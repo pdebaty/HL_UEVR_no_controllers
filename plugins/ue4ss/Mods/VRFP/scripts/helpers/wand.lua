@@ -9,7 +9,18 @@ local meshComponent = nil
 local wandTipOffset = 30.0
 local isWandHolstered = false
 local maxRetries = 10
+local bIsVisible = false
+
 local isDebug = false
+
+local controllerWandPositionOffset = {X=0, Y=0, Z=0}
+local controllerWandRotationOffset = {Pitch=-80, Yaw=0, Roll=0}
+local socketWandPositionOffset = {X=-2.0, Y=0, Z=3.390}
+local socketWandRotationOffset = {Pitch=80, Yaw=0, Roll=0}
+
+function M.isVisible()
+	return bIsVisible
+end
 
 function M.isConnected()
 	return meshComponent ~= nil
@@ -18,11 +29,11 @@ function M.reset()
 	meshComponent = nil
 end
 
-function M.connect(pawn, hand)
-	uevrUtils.print("Wand connect called")
+function detachFromThirdPerson()
+	uevrUtils.print("Detaching wand from player")
 	meshComponent = nil
 	if uevrUtils.validate_object(pawn) ~= nil and pawn.GetWand ~= nil then
-		uevrUtils.print("Trying to connect wand for pawn " .. pawn:get_full_name() .. " " .. hand)
+		uevrUtils.print("Trying to connect wand for pawn " .. pawn:get_full_name())
 		local wand = pawn:GetWand()
 		if wand ~= nil then
 			meshComponent = wand.Mesh -- wand:GetWandMesh()
@@ -32,8 +43,6 @@ function M.connect(pawn, hand)
 				meshComponent:DetachFromParent(false, false)
 				meshComponent:SetVisibility(true, true)
 				meshComponent:SetHiddenInGame(false, true)
-				controllers.attachComponentToController(hand, meshComponent)
-				uevrUtils.set_component_relative_transform(meshComponent, {X=0, Y=0, Z=0}, {Pitch=-85, Yaw=0, Roll=0})		
 			else
 				uevrUtils.print("Mesh is not valid in wand connect")
 				meshComponent = nil
@@ -53,6 +62,24 @@ function M.connect(pawn, hand)
 	return false
 end
 
+function M.connectToController(pawn, hand)
+	if detachFromThirdPerson() and uevrUtils.validate_object(meshComponent) ~= nil then
+		controllers.attachComponentToController(hand, meshComponent)
+		uevrUtils.set_component_relative_transform(meshComponent, controllerWandPositionOffset, controllerWandRotationOffset)
+		return true
+	end
+	return false
+end
+
+function M.connectToSocket(pawn, handComponent, socketName, offset)
+	if detachFromThirdPerson() and uevrUtils.validate_object(meshComponent) ~= nil then
+		meshComponent:K2_AttachTo(handComponent, uevrUtils.fname_from_string(socketName), 0, false)
+		uevrUtils.set_component_relative_transform(meshComponent, offset ~= nil and offset or socketWandPositionOffset, offset ~= nil and offset or socketWandRotationOffset)		
+		return true
+	end
+	return false
+end
+
 function M.connectAltWand(pawn, hand)
 	uevrUtils.print("connectAltWand called")
 	if uevrUtils.validate_object(pawn) ~= nil and pawn.GetWand ~= nil then
@@ -64,11 +91,7 @@ function M.connectAltWand(pawn, hand)
 			component:SetVisibility(true, true)
 			component:SetHiddenInGame(false, true)
 			
-			local materials = wand.SK_Wand:GetMaterials()
-			uevrUtils.print("Found " .. #materials .. " materials on SK_Wand")
-			for i, material in ipairs(materials) do				
-				component:SetMaterial(i, material)
-			end
+			uevrUtils.copyMaterials(wand.SK_Wand, component)
 			
 			--destroy the existing SK_Wand
 			--wand:K2_DestroyComponent(wand.SK_Wand)
@@ -78,7 +101,7 @@ function M.connectAltWand(pawn, hand)
 				uevrUtils.print("Attached SK_Wand to Mesh " .. wand.Mesh:get_full_name())
 			else
 				controllers.attachComponentToController(hand, component)
-				uevrUtils.set_component_relative_transform(component, {X=2.03, Y=-2.950, Z=3.22}, {Pitch=-77.5, Yaw=0, Roll=0})	
+				uevrUtils.set_component_relative_transform(component, controllerWandPositionOffset, controllerWandRotationOffset)	
 				uevrUtils.print("Attached SK_Wand to Motion Controller")
 			end
 			
@@ -87,6 +110,7 @@ function M.connectAltWand(pawn, hand)
 			wand.SK_Wand:Deactivate()			
 			wand.SK_Wand = component	
 			wand:SetWandStyle(wand.WandStyle)
+			--destroy the existing SK_Wand
 			--without the delay crashes occur
 			delay(100, function()
 				wand:K2_DestroyComponent(oldWand)
@@ -115,6 +139,27 @@ function M.disconnect()
 		uevrUtils.print("Couldnt reattach wand to parent")
 	end
 end
+
+-- function M.getPosition()
+	-- if uevrUtils.validate_object(meshComponent) ~= nil and meshComponent.K2_GetComponentLocation ~= nil then	
+		-- return meshComponent:K2_GetComponentLocation()
+	-- end
+	-- return nil
+-- end
+-- function M.updateOffsetPosition(handPosition)
+	-- if uevrUtils.validate_object(meshComponent) ~= nil and meshComponent.K2_GetComponentLocation ~= nil then	
+		-- local wandPosition = M.getPosition()
+		-- local deltaX = wandPosition.X - handPosition.X
+		-- local deltaY = wandPosition.Y - handPosition.Y
+		-- local deltaZ = wandPosition.Z - handPosition.Z
+		-- distance = kismet_math_library:Vector_Distance(wandPosition, handPosition)
+		-- local factor = 5.75 / distance 
+		-- local pos = {X=controllerWandPositionOffset.X * factor, Y=controllerWandPositionOffset.Y * factor, Z=controllerWandPositionOffset.Z * factor}
+		-- print("Deltas",distance, factor,"\n")
+
+		-- uevrUtils.set_component_relative_transform(meshComponent, pos, controllerWandRotationOffset)	
+	-- end
+-- end
 
 function M.getWandTargetLocationAndDirection(useLineTrace)
 	if useLineTrace == nil then useLineTrace = false end
@@ -152,8 +197,10 @@ function M.setVisible(pawn, val)
 		if wand ~= nil then
 			if val then
 				wand:ActivateFx()
+				bIsVisible = true
 			else
 				wand:DeactivationFx()
+				bIsVisible = false
 			end
 		end
 	end
@@ -221,32 +268,41 @@ function M.handleInput(pawn, state, isLeftHanded)
 	end
 end
 
-local g_shoulderGripOn = false
-function M.handleBrokenWand(pawn, state, isLeftHanded)
-	local gripButton = XINPUT_GAMEPAD_RIGHT_SHOULDER
-	if isLeftHanded then
-		gripButton = XINPUT_GAMEPAD_LEFT_SHOULDER
-	end
-	if not g_shoulderGripOn and uevrUtils.isButtonPressed(state, gripButton)  then
-		g_shoulderGripOn = true
-		local headLocation = controllers.getControllerLocation(2)
-		local handLocation = controllers.getControllerLocation(isLeftHanded and 0 or 1)
-		if headLocation ~= nil and handLocation ~= nil then
-			local distance = kismet_math_library:Vector_Distance(headLocation, handLocation)
-			--print(distance,"\n")
-			if distance < 30 then	
-				M.connectAltWand(pawn, isLeftHanded and 0 or 1)
-			end
-		end
-	elseif g_shoulderGripOn and uevrUtils.isButtonNotPressed(state, gripButton) then
-		delay(1000, function()
-			g_shoulderGripOn = false
-		end)
-	end
+-- local g_shoulderGripOn = false
+-- function M.handleBrokenWand(pawn, state, isLeftHanded)
+	-- local gripButton = XINPUT_GAMEPAD_RIGHT_SHOULDER
+	-- if isLeftHanded then
+		-- gripButton = XINPUT_GAMEPAD_LEFT_SHOULDER
+	-- end
+	-- if not g_shoulderGripOn and uevrUtils.isButtonPressed(state, gripButton)  then
+		-- g_shoulderGripOn = true
+		-- local headLocation = controllers.getControllerLocation(2)
+		-- local handLocation = controllers.getControllerLocation(isLeftHanded and 0 or 1)
+		-- if headLocation ~= nil and handLocation ~= nil then
+			-- local distance = kismet_math_library:Vector_Distance(headLocation, handLocation)
+			-- --print(distance,"\n")
+			-- if distance < 30 then	
+				-- M.connectAltWand(pawn, isLeftHanded and 0 or 1)
+			-- end
+		-- end
+	-- elseif g_shoulderGripOn and uevrUtils.isButtonNotPressed(state, gripButton) then
+		-- delay(1000, function()
+			-- g_shoulderGripOn = false
+		-- end)
+	-- end
 
-end
+-- end
 
 function M.registerHooks()	
+	RegisterHook("/Script/Toolset.Tool:ActivateFx", function(self, name)
+		--print("ActivateFx called\n")
+		bIsVisible = true
+	end)
+	RegisterHook("/Script/Toolset.Tool:DeactivationFx", function(self, name)
+		--print("DeactivationFx called\n")
+		bIsVisible = false
+	end)
+
 	if isDebug then
 		RegisterHook("/Game/Gameplay/ToolSet/Items/Wand/BP_WandTool.BP_WandTool_C:SetWandStyle", function(self, name)
 			print("SetWandStyle called ",name:get():ToString(),"\n")
@@ -267,6 +323,7 @@ function M.registerHooks()
 end
 
 function M.registerLateHooks()
+
 	if isDebug then
 		RegisterHook("/Game/Gameplay/ToolSet/Items/Wand/BP_WandTool.BP_WandTool_C:ResetLightCombo", function(self)
 			print("ResetLightCombo called\n")
