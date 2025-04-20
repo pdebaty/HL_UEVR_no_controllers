@@ -225,7 +225,7 @@ function M.createComponent(pawn, name, hand)
 			--currentLeftLocation[2] = currentLeftLocation[2] - 90
 			local location = hand == 1 and uevrUtils.vector(currentRightLocation[1], currentRightLocation[2], currentRightLocation[3]) or uevrUtils.vector(currentLeftLocation[1], currentLeftLocation[2], currentLeftLocation[3])
 			local rotation = hand == 1 and uevrUtils.rotator(currentRightRotation[1], currentRightRotation[2], currentRightRotation[3]) or uevrUtils.rotator(currentLeftRotation[1], currentLeftRotation[2], currentLeftRotation[3])
-			animation.initPoseableComponent(component, (hand == 1) and rightJointName or leftJointName, (hand == 1) and leftShoulderName or rightShoulderName, location, rotation, uevrUtils.vector(currentScale, currentScale, currentScale), rootBoneName)
+			animation.initPoseableComponent(component, (hand == 1) and rightJointName or leftJointName, (hand == 1) and rightShoulderName or leftShoulderName, (hand == 1) and leftShoulderName or rightShoulderName, location, rotation, uevrUtils.vector(currentScale, currentScale, currentScale), rootBoneName)
 		end
 	end
 	return component
@@ -242,8 +242,8 @@ function M.adjustRotation(hand, axis, delta)
 	print("Hand: ",hand," Rotation:",currentRotation[1], currentRotation[2], currentRotation[3],"\n")
 	local location = uevrUtils.vector(currentLocation[1], currentLocation[2], currentLocation[3])
 	local rotation = uevrUtils.rotator(currentRotation[1], currentRotation[2], currentRotation[3])
-	animation.initPoseableComponent((hand == 1) and rightGloveComponent or leftGloveComponent, (hand == 1) and rightJointName or leftJointName, (hand == 1) and leftShoulderName or rightShoulderName, location, rotation, uevrUtils.vector(currentScale, currentScale, currentScale), rootBoneName)
-	animation.initPoseableComponent((hand == 1) and rightHandComponent or leftHandComponent, (hand == 1) and rightJointName or leftJointName, (hand == 1) and leftShoulderName or rightShoulderName, location, rotation, uevrUtils.vector(currentScale, currentScale, currentScale), rootBoneName)
+	animation.initPoseableComponent((hand == 1) and rightGloveComponent or leftGloveComponent, (hand == 1) and rightJointName or leftJointName, (hand == 1) and rightShoulderName or leftShoulderName, (hand == 1) and leftShoulderName or rightShoulderName, location, rotation, uevrUtils.vector(currentScale, currentScale, currentScale), rootBoneName)
+	animation.initPoseableComponent((hand == 1) and rightHandComponent or leftHandComponent, (hand == 1) and rightJointName or leftJointName, (hand == 1) and rightShoulderName or leftShoulderName, (hand == 1) and leftShoulderName or rightShoulderName, location, rotation, uevrUtils.vector(currentScale, currentScale, currentScale), rootBoneName)
 end
 
 function M.adjustLocation(hand, axis, delta)
@@ -253,8 +253,8 @@ function M.adjustLocation(hand, axis, delta)
 	print("Hand: ",hand," Location:",currentLocation[1], currentLocation[2], currentLocation[3],"\n")
 	local location = uevrUtils.vector(currentLocation[1], currentLocation[2], currentLocation[3])
 	local rotation = uevrUtils.rotator(currentRotation[1], currentRotation[2], currentRotation[3])
-	animation.initPoseableComponent((hand == 1) and rightGloveComponent or leftGloveComponent, (hand == 1) and rightJointName or leftJointName, (hand == 1) and leftShoulderName or rightShoulderName, location, rotation, uevrUtils.vector(currentScale, currentScale, currentScale), rootBoneName)
-	animation.initPoseableComponent((hand == 1) and rightHandComponent or leftHandComponent, (hand == 1) and rightJointName or leftJointName, (hand == 1) and leftShoulderName or rightShoulderName, location, rotation, uevrUtils.vector(currentScale, currentScale, currentScale), rootBoneName)
+	animation.initPoseableComponent((hand == 1) and rightGloveComponent or leftGloveComponent, (hand == 1) and rightJointName or leftJointName, (hand == 1) and rightShoulderName or leftShoulderName, (hand == 1) and leftShoulderName or rightShoulderName, location, rotation, uevrUtils.vector(currentScale, currentScale, currentScale), rootBoneName)
+	animation.initPoseableComponent((hand == 1) and rightHandComponent or leftHandComponent, (hand == 1) and rightJointName or leftJointName, (hand == 1) and rightShoulderName or leftShoulderName, (hand == 1) and leftShoulderName or rightShoulderName, location, rotation, uevrUtils.vector(currentScale, currentScale, currentScale), rootBoneName)
 end
 
 -- local g_shoulderGripOn = false
