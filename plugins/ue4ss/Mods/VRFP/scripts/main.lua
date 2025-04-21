@@ -11,6 +11,7 @@ local mounts = require("helpers/mounts")
 local decoupledYaw = require("helpers/decoupledyaw")
 local input = require("helpers/input")
 local gesturesModule = require("gestures/gestures")
+local animation = require("libs/animation")
 
 uevrUtils.enableDebug(true)
 
@@ -1224,7 +1225,9 @@ local inNativeMode = true
 RegisterKeyBind(Key.F2, function()
     print("F2 pressed\n")
 	ExecuteInGameThread( function()
-		connectCube(0)
+		--connectCube(0)
+		uevrUtils.print(animation.getRootBoneOfBone(hands.getHandComponent(1), "RightForeArm"):to_string())
+		animation.getHierarchyForBone(hands.getHandComponent(1), "RightForeArm")
 	end)
 
 	-- ExecuteInGameThread( function()
@@ -1359,14 +1362,16 @@ local currentIndex = 1
 local currentFinger = 1
 RegisterKeyBind(Key.NUM_EIGHT, function()
     print("NUM8 pressed\n")
+	hands.adjustRotation(currentHand, 3, 90)
 	--hands.adjustLocation(currentHand, 3, 2)
-	ExecuteInGameThread( function() hands.setFingerAngles(currentFinger, currentIndex, 0, 5) end)
+	--ExecuteInGameThread( function() hands.setFingerAngles(currentFinger, currentIndex, 0, 5) end)
 end)
 
 RegisterKeyBind(Key.NUM_TWO, function()
     print("NUM2 pressed\n")
+	hands.adjustRotation(currentHand, 3, -90)
 	--hands.adjustLocation(currentHand, 3, -2)
-	ExecuteInGameThread( function() hands.setFingerAngles(currentFinger, currentIndex, 0, -5) end)
+	--ExecuteInGameThread( function() hands.setFingerAngles(currentFinger, currentIndex, 0, -5) end)
 	-- setVisualSkeletonBoneScale(glovesComponent, boneIndex, 0.003)
 	-- boneIndex = boneIndex - 1
 	-- if boneIndex < 1 then boneIndex = 1 end
@@ -1375,30 +1380,34 @@ end)
 
 RegisterKeyBind(Key.NUM_SIX, function()
     print("NUM6 pressed\n")
+	hands.adjustRotation(currentHand, 1, 90)
 	--hands.adjustLocation(currentHand, 1, 2)
-	ExecuteInGameThread( function() hands.setFingerAngles(currentFinger, currentIndex, 1, 5) end)
+	--ExecuteInGameThread( function() hands.setFingerAngles(currentFinger, currentIndex, 1, 5) end)
 end)
 RegisterKeyBind(Key.NUM_FIVE, function()
     print("NUM6 pressed\n")
-	--currentHand = (currentHand + 1) % 2
-	currentFinger = currentFinger + 1
-	if currentFinger > 10 then currentFinger = 1 end
-	print("Current finger joint", currentFinger, currentIndex)
+	currentHand = (currentHand + 1) % 2
+	-- currentFinger = currentFinger + 1
+	-- if currentFinger > 10 then currentFinger = 1 end
+	-- print("Current finger joint", currentFinger, currentIndex)
 end)
 RegisterKeyBind(Key.NUM_FOUR, function()
     print("NUM6 pressed\n")
+	hands.adjustRotation(currentHand, 1, -90)
 	--hands.adjustLocation(currentHand, 1, -2)
-	ExecuteInGameThread( function() hands.setFingerAngles(currentFinger, currentIndex, 1, -5) end)
+	--ExecuteInGameThread( function() hands.setFingerAngles(currentFinger, currentIndex, 1, -5) end)
 end)
 RegisterKeyBind(Key.NUM_NINE, function()
     print("NUM6 pressed\n")
+	hands.adjustRotation(currentHand, 2, 90)
 	--hands.adjustLocation(currentHand, 2, 2)
-	ExecuteInGameThread( function() hands.setFingerAngles(currentFinger, currentIndex, 2, 5) end)
+	--ExecuteInGameThread( function() hands.setFingerAngles(currentFinger, currentIndex, 2, 5) end)
 end)
 RegisterKeyBind(Key.NUM_THREE, function()
     print("NUM6 pressed\n")
+	hands.adjustRotation(currentHand, 2, -90)
 	--hands.adjustLocation(currentHand, 2, -2)
-	ExecuteInGameThread( function() hands.setFingerAngles(currentFinger, currentIndex, 2, -5) end)
+	--ExecuteInGameThread( function() hands.setFingerAngles(currentFinger, currentIndex, 2, -5) end)
 end)
 RegisterKeyBind(Key.NUM_ONE, function()
     print("NUM0 pressed\n")

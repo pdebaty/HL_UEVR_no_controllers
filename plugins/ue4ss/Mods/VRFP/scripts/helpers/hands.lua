@@ -68,13 +68,11 @@ local leftJointName = "LeftForeArm"
 local rightJointName = "RightForeArm"
 local leftShoulderName = "LeftShoulder"
 local rightShoulderName = "RightShoulder"
-local defaultRootBoneName = "SKT_Reference"
-local rootBoneName = defaultRootBoneName
+local rootOffset = {X=0, Y=0, Z=0, Pitch=0, Yaw=-90, Roll=0} --if the entire skeletal mesh points a different direction then adjust here first
 
-local rootBones = {}
-rootBones[1] = {bone="SKT_Reference", offset={X=0, Y=0, Z=0, Pitch=0, Yaw=-90, Roll=0}}
-rootBones[2] = {bone="Hips", offset={X=0, Y=0, Z=-98.38, Pitch=0, Yaw=-90, Roll=0}} --certain glove skeletons dont have a standard bone tree so we need to make exceptions for these
-local socketOffsets = {SKT_Reference={X=-2.0, Y=0, Z=3.390, Pitch=80, Yaw=0, Roll=0}, Hips={X=-0.84, Y=6.9, Z=102.45, Pitch=0, Yaw=0, Roll=80}}
+--some gloves dont have a valid socket reference so handle outliers here
+local socketOffsetName = "Reference"
+local socketOffsets = {Reference={X=-2.0, Y=0, Z=3.390, Pitch=80, Yaw=0, Roll=0}, Custom={X=-0.84, Y=6.9, Z=4.25, Pitch=0, Yaw=0, Roll=80}}
 
 --used for dev/debugging
 local gloveBoneList = {40, 31, 36, 20, 25, 73, 64, 78, 83, 69}
@@ -82,65 +80,6 @@ local handBoneList = {50, 41, 46, 29, 34, 65, 70, 75, 80, 85}
 
 function M.print(text)
 	uevrUtils.print("[hands] " .. text)
-end
-
-function M.handleInput(state, wandVisible)
-	local triggerValue = state.Gamepad.bLeftTrigger
-	animation.updateAnimation("left_glove", "left_trigger", triggerValue > 100)
-	animation.updateAnimation("left_hand", "left_trigger", triggerValue > 100)
-	
-	animation.updateAnimation("left_glove", "left_grip", uevrUtils.isButtonPressed(state, XINPUT_GAMEPAD_LEFT_SHOULDER))
-	animation.updateAnimation("left_hand", "left_grip", uevrUtils.isButtonPressed(state, XINPUT_GAMEPAD_LEFT_SHOULDER))
-
-    local left_controller = uevr.params.vr.get_left_joystick_source()
-    local h_left_rest = uevr.params.vr.get_action_handle("/actions/default/in/ThumbrestTouchLeft")    
-	animation.updateAnimation("left_glove", "left_thumb", uevr.params.vr.is_action_active(h_left_rest, left_controller))
-	animation.updateAnimation("left_hand", "left_thumb", uevr.params.vr.is_action_active(h_left_rest, left_controller))
-
-
-	local triggerValue = state.Gamepad.bRightTrigger
-	animation.updateAnimation("right_glove", wandVisible and "right_trigger_wand" or "right_trigger", triggerValue > 100)
-	animation.updateAnimation("right_hand", wandVisible and "right_trigger_wand" or "right_trigger", triggerValue > 100)
-
-	animation.updateAnimation("right_glove", wandVisible and "right_grip_wand" or "right_grip", uevrUtils.isButtonPressed(state, XINPUT_GAMEPAD_RIGHT_SHOULDER))
-	animation.updateAnimation("right_hand", wandVisible and "right_grip_wand" or "right_grip", uevrUtils.isButtonPressed(state, XINPUT_GAMEPAD_RIGHT_SHOULDER))
-
-	if not wandVisible then
-		local right_controller = uevr.params.vr.get_right_joystick_source()
-		local h_right_rest = uevr.params.vr.get_action_handle("/actions/default/in/ThumbrestTouchRight")    
-		animation.updateAnimation("right_glove", "right_thumb", uevr.params.vr.is_action_active(h_right_rest, right_controller))
-		animation.updateAnimation("right_hand", "right_thumb", uevr.params.vr.is_action_active(h_right_rest, right_controller))
-	end
-
-end
-
-function M.getHandComponent(hand)
-	local component = nil
-	if hand == 0 then
-		if leftGloveComponent ~= nil then
-			component = leftGloveComponent
-		else
-			component = leftHandComponent
-		end
-	else
-		if rightGloveComponent ~= nil then
-			component = rightGloveComponent
-		else
-			component = rightHandComponent
-		end	
-	end
-	return component
-end 
-
-function M.getPosition(hand)
-	local component = M.getHandComponent(hand)
-	if component ~= nil then
-		return component:GetSocketLocation(uevrUtils.fname_from_string("WandSocket")) --component:K2_GetComponentLocation()
-	end
-end
-
-function M.setFingerAngles(fingerIndex, jointIndex, angleID, angle)
-	animation.setFingerAngles(fingerIndex < 6 and leftHandComponent or rightHandComponent, handBoneList, fingerIndex, jointIndex, angleID, angle)
 end
 
 function M.reset()
@@ -154,7 +93,7 @@ function M.exists()
 	return rightHandComponent ~= nil or rightGloveComponent ~= nil
 end
 
-function M.create(pawn)
+function M.create(pawn)	
 	rightHandComponent = M.createComponent(pawn, "Arms", 1)
 	rightGloveComponent = M.createComponent(pawn, "Gloves", 1)
 	if rightHandComponent ~= nil or rightGloveComponent ~= nil then
@@ -201,38 +140,85 @@ function M.createComponent(pawn, name, hand)
 			--fixes flickering but > 1 causes a perfomance hit with dynamic shadows according to unreal doc
 			component.BoundsScale = 8.0
 			component.bCastDynamicShadow=false
-			--hack for component not initially showing
-			-- component:SetVisibility(false, true)
-			-- component:SetHiddenInGame(true, true)
-			-- component:SetVisibility(true, true) 
-			-- component:SetHiddenInGame(false, true)
-
-			rootBoneName = defaultRootBoneName
-			local rootOffset = nil
-			for index = 1 , #rootBones do			
-				local elem = rootBones[index]
-				if animation.hasBone(component, elem["bone"]) then
-					rootBoneName = elem["bone"]
-					rootOffset = elem["offset"]
-					break
-				end
+			
+			socketOffsetName = "Reference"
+			if not animation.hasBone(component, "SKT_Reference") then
+				socketOffsetName = "Custom"
 			end
-			--rootOffset.Z = rootOffset.Z - 90
-			print("Using",rootBoneName,"\n")
+			
 			controllers.attachComponentToController(hand, component)
 			uevrUtils.set_component_relative_transform(component, rootOffset, rootOffset)	
-			--currentRightLocation[2] = currentRightLocation[2] - 90
-			--currentLeftLocation[2] = currentLeftLocation[2] - 90
+
 			local location = hand == 1 and uevrUtils.vector(currentRightLocation[1], currentRightLocation[2], currentRightLocation[3]) or uevrUtils.vector(currentLeftLocation[1], currentLeftLocation[2], currentLeftLocation[3])
 			local rotation = hand == 1 and uevrUtils.rotator(currentRightRotation[1], currentRightRotation[2], currentRightRotation[3]) or uevrUtils.rotator(currentLeftRotation[1], currentLeftRotation[2], currentLeftRotation[3])
-			animation.initPoseableComponent(component, (hand == 1) and rightJointName or leftJointName, (hand == 1) and rightShoulderName or leftShoulderName, (hand == 1) and leftShoulderName or rightShoulderName, location, rotation, uevrUtils.vector(currentScale, currentScale, currentScale), rootBoneName)
+			animation.initPoseableComponent(component, (hand == 1) and rightJointName or leftJointName, (hand == 1) and rightShoulderName or leftShoulderName, (hand == 1) and leftShoulderName or rightShoulderName, location, rotation, uevrUtils.vector(currentScale, currentScale, currentScale))
 		end
 	end
 	return component
 end
 
 function M.getSocketOffset()
-	return socketOffsets[rootBoneName]
+	return socketOffsets[socketOffsetName]
+end
+
+function M.getHandComponent(hand)
+	local component = nil
+	if hand == 0 then
+		if leftGloveComponent ~= nil then
+			component = leftGloveComponent
+		else
+			component = leftHandComponent
+		end
+	else
+		if rightGloveComponent ~= nil then
+			component = rightGloveComponent
+		else
+			component = rightHandComponent
+		end	
+	end
+	return component
+end 
+
+function M.getPosition(hand)
+	local component = M.getHandComponent(hand)
+	if component ~= nil then
+		return component:GetSocketLocation(uevrUtils.fname_from_string("WandSocket")) --component:K2_GetComponentLocation()
+	end
+end
+
+function M.setFingerAngles(fingerIndex, jointIndex, angleID, angle)
+	animation.setFingerAngles(fingerIndex < 6 and leftHandComponent or rightHandComponent, handBoneList, fingerIndex, jointIndex, angleID, angle)
+end
+
+
+function M.handleInput(state, wandVisible)
+	local triggerValue = state.Gamepad.bLeftTrigger
+	animation.updateAnimation("left_glove", "left_trigger", triggerValue > 100)
+	animation.updateAnimation("left_hand", "left_trigger", triggerValue > 100)
+	
+	animation.updateAnimation("left_glove", "left_grip", uevrUtils.isButtonPressed(state, XINPUT_GAMEPAD_LEFT_SHOULDER))
+	animation.updateAnimation("left_hand", "left_grip", uevrUtils.isButtonPressed(state, XINPUT_GAMEPAD_LEFT_SHOULDER))
+
+    local left_controller = uevr.params.vr.get_left_joystick_source()
+    local h_left_rest = uevr.params.vr.get_action_handle("/actions/default/in/ThumbrestTouchLeft")    
+	animation.updateAnimation("left_glove", "left_thumb", uevr.params.vr.is_action_active(h_left_rest, left_controller))
+	animation.updateAnimation("left_hand", "left_thumb", uevr.params.vr.is_action_active(h_left_rest, left_controller))
+
+
+	local triggerValue = state.Gamepad.bRightTrigger
+	animation.updateAnimation("right_glove", wandVisible and "right_trigger_wand" or "right_trigger", triggerValue > 100)
+	animation.updateAnimation("right_hand", wandVisible and "right_trigger_wand" or "right_trigger", triggerValue > 100)
+
+	animation.updateAnimation("right_glove", wandVisible and "right_grip_wand" or "right_grip", uevrUtils.isButtonPressed(state, XINPUT_GAMEPAD_RIGHT_SHOULDER))
+	animation.updateAnimation("right_hand", wandVisible and "right_grip_wand" or "right_grip", uevrUtils.isButtonPressed(state, XINPUT_GAMEPAD_RIGHT_SHOULDER))
+
+	if not wandVisible then
+		local right_controller = uevr.params.vr.get_right_joystick_source()
+		local h_right_rest = uevr.params.vr.get_action_handle("/actions/default/in/ThumbrestTouchRight")    
+		animation.updateAnimation("right_glove", "right_thumb", uevr.params.vr.is_action_active(h_right_rest, right_controller))
+		animation.updateAnimation("right_hand", "right_thumb", uevr.params.vr.is_action_active(h_right_rest, right_controller))
+	end
+
 end
 
 function M.adjustRotation(hand, axis, delta)
@@ -242,8 +228,8 @@ function M.adjustRotation(hand, axis, delta)
 	print("Hand: ",hand," Rotation:",currentRotation[1], currentRotation[2], currentRotation[3],"\n")
 	local location = uevrUtils.vector(currentLocation[1], currentLocation[2], currentLocation[3])
 	local rotation = uevrUtils.rotator(currentRotation[1], currentRotation[2], currentRotation[3])
-	animation.initPoseableComponent((hand == 1) and rightGloveComponent or leftGloveComponent, (hand == 1) and rightJointName or leftJointName, (hand == 1) and rightShoulderName or leftShoulderName, (hand == 1) and leftShoulderName or rightShoulderName, location, rotation, uevrUtils.vector(currentScale, currentScale, currentScale), rootBoneName)
-	animation.initPoseableComponent((hand == 1) and rightHandComponent or leftHandComponent, (hand == 1) and rightJointName or leftJointName, (hand == 1) and rightShoulderName or leftShoulderName, (hand == 1) and leftShoulderName or rightShoulderName, location, rotation, uevrUtils.vector(currentScale, currentScale, currentScale), rootBoneName)
+	animation.initPoseableComponent((hand == 1) and rightGloveComponent or leftGloveComponent, (hand == 1) and rightJointName or leftJointName, (hand == 1) and rightShoulderName or leftShoulderName, (hand == 1) and leftShoulderName or rightShoulderName, location, rotation, uevrUtils.vector(currentScale, currentScale, currentScale))
+	animation.initPoseableComponent((hand == 1) and rightHandComponent or leftHandComponent, (hand == 1) and rightJointName or leftJointName, (hand == 1) and rightShoulderName or leftShoulderName, (hand == 1) and leftShoulderName or rightShoulderName, location, rotation, uevrUtils.vector(currentScale, currentScale, currentScale))
 end
 
 function M.adjustLocation(hand, axis, delta)
@@ -253,98 +239,73 @@ function M.adjustLocation(hand, axis, delta)
 	print("Hand: ",hand," Location:",currentLocation[1], currentLocation[2], currentLocation[3],"\n")
 	local location = uevrUtils.vector(currentLocation[1], currentLocation[2], currentLocation[3])
 	local rotation = uevrUtils.rotator(currentRotation[1], currentRotation[2], currentRotation[3])
-	animation.initPoseableComponent((hand == 1) and rightGloveComponent or leftGloveComponent, (hand == 1) and rightJointName or leftJointName, (hand == 1) and rightShoulderName or leftShoulderName, (hand == 1) and leftShoulderName or rightShoulderName, location, rotation, uevrUtils.vector(currentScale, currentScale, currentScale), rootBoneName)
-	animation.initPoseableComponent((hand == 1) and rightHandComponent or leftHandComponent, (hand == 1) and rightJointName or leftJointName, (hand == 1) and rightShoulderName or leftShoulderName, (hand == 1) and leftShoulderName or rightShoulderName, location, rotation, uevrUtils.vector(currentScale, currentScale, currentScale), rootBoneName)
+	animation.initPoseableComponent((hand == 1) and rightGloveComponent or leftGloveComponent, (hand == 1) and rightJointName or leftJointName, (hand == 1) and rightShoulderName or leftShoulderName, (hand == 1) and leftShoulderName or rightShoulderName, location, rotation, uevrUtils.vector(currentScale, currentScale, currentScale))
+	animation.initPoseableComponent((hand == 1) and rightHandComponent or leftHandComponent, (hand == 1) and rightJointName or leftJointName, (hand == 1) and rightShoulderName or leftShoulderName, (hand == 1) and leftShoulderName or rightShoulderName, location, rotation, uevrUtils.vector(currentScale, currentScale, currentScale))
 end
 
--- local g_shoulderGripOn = false
--- function M.handleBrokenHands(pawn, state, isLeftHanded)
-	-- local gripButton = XINPUT_GAMEPAD_RIGHT_SHOULDER
-	-- if isLeftHanded then
-		-- gripButton = XINPUT_GAMEPAD_LEFT_SHOULDER
-	-- end
-	-- if not g_shoulderGripOn and uevrUtils.isButtonPressed(state, gripButton)  then
-		-- g_shoulderGripOn = true
-		-- local headLocation = controllers.getControllerLocation(2)
-		-- local handLocation = controllers.getControllerLocation(isLeftHanded and 0 or 1)
-		-- if headLocation ~= nil and handLocation ~= nil then
-			-- local distance = kismet_math_library:Vector_Distance(headLocation, handLocation)
-			-- --print(distance,"\n")
-			-- if distance < 30 then	
-				-- M.destroyHands(pawn)
-				-- M.create(pawn)
-			-- end
-		-- end
-	-- elseif g_shoulderGripOn and uevrUtils.isButtonNotPressed(state, gripButton) then
-		-- delay(1000, function()
-			-- g_shoulderGripOn = false
-		-- end)
-	-- end
 
--- end
+-- function M.changeGloveMaterials()
+	-- local referenceGlove = uevrUtils.getChildComponent(pawn.Mesh, "Gloves")
+	-- print("changeGloveMaterials",referenceGlove:get_full_name(),referenceGlove.SkeletalMesh:get_full_name(),"\n")
+	-- -- local skeletalMesh = uevrUtils.find_instance_of("Class /Script/Engine.SkeletalMesh", "SkeletalMesh /Game/RiggedObjects/Characters/Human/Clothing/Accessory/Gloves_F/FingerlessGloves/SK_HUM_F_Acc_FingerlessGloves_LongSleeve_Master.SK_HUM_F_Acc_FingerlessGloves_LongSleeve_Master") 
+	-- -- if skeletalMesh ~= nil then
+		-- -- rightGloveComponent:SetSkeletalMesh(skeletalMesh)
+	-- -- else
+		-- -- print("Skeletal Mesh not found\n")
+	-- -- end
 
-function M.changeGloveMaterials()
-	local referenceGlove = uevrUtils.getChildComponent(pawn.Mesh, "Gloves")
-	print("changeGloveMaterials",referenceGlove:get_full_name(),referenceGlove.SkeletalMesh:get_full_name(),"\n")
-	-- local skeletalMesh = uevrUtils.find_instance_of("Class /Script/Engine.SkeletalMesh", "SkeletalMesh /Game/RiggedObjects/Characters/Human/Clothing/Accessory/Gloves_F/FingerlessGloves/SK_HUM_F_Acc_FingerlessGloves_LongSleeve_Master.SK_HUM_F_Acc_FingerlessGloves_LongSleeve_Master") 
-	-- if skeletalMesh ~= nil then
-		-- rightGloveComponent:SetSkeletalMesh(skeletalMesh)
-	-- else
-		-- print("Skeletal Mesh not found\n")
-	-- end
-
-	local materials = rightGloveComponent:GetMaterials()
-	if materials ~= nil then
-		M.print("Found " .. #materials .. " materials on target component before")
-		for i, material in ipairs(materials) do				
-			M.print("Found material " .. material:get_full_name())
-		end
-	else
-		M.print("No materials found")
-	end
-
-	local materials = referenceGlove:GetMaterials()
-	if materials ~= nil then
-		M.print("Found " .. #materials .. " materials on reference component")
-		for i, material in ipairs(materials) do				
-			rightGloveComponent:SetMaterial(0, material)
-			M.print("Found material " .. material:get_full_name())
-		end
-	else
-		M.print("No materials found")
-	end
-	
-	local materials = rightGloveComponent:GetMaterials()
-	if materials ~= nil then
-		M.print("Found " .. #materials .. " materials on target component after")
-		for i, material in ipairs(materials) do				
-			M.print("Found material " .. material:get_full_name())
-		end
-	else
-		M.print("No materials found")
-	end
-	
-	-- local materials = referenceGlove.OverrideMaterials
+	-- local materials = rightGloveComponent:GetMaterials()
 	-- if materials ~= nil then
-		-- M.print("Found " .. #materials .. " override materials on reference component")
+		-- M.print("Found " .. #materials .. " materials on target component before")
 		-- for i, material in ipairs(materials) do				
-			-- rightGloveComponent:SetMaterial(i, material)
 			-- M.print("Found material " .. material:get_full_name())
-		-- end
-	-- else
-		-- M.print("No override materials found")
-	-- end
-	
-	-- local materials = referenceGlove.SkeletalMesh.Materials
-	-- if materials ~= nil then
-		-- uevrUtils.print("Found " .. #materials .. " materials on reference component")
-		-- for i, material in ipairs(materials) do				
-			-- rightGloveComponent.SkeletalMesh:SetMaterial(i, material)
 		-- end
 	-- else
 		-- M.print("No materials found")
 	-- end
-end
+
+	-- local materials = referenceGlove:GetMaterials()
+	-- if materials ~= nil then
+		-- M.print("Found " .. #materials .. " materials on reference component")
+		-- for i, material in ipairs(materials) do				
+			-- rightGloveComponent:SetMaterial(0, material)
+			-- M.print("Found material " .. material:get_full_name())
+		-- end
+	-- else
+		-- M.print("No materials found")
+	-- end
+	
+	-- local materials = rightGloveComponent:GetMaterials()
+	-- if materials ~= nil then
+		-- M.print("Found " .. #materials .. " materials on target component after")
+		-- for i, material in ipairs(materials) do				
+			-- M.print("Found material " .. material:get_full_name())
+		-- end
+	-- else
+		-- M.print("No materials found")
+	-- end
+	
+	-- -- local materials = referenceGlove.OverrideMaterials
+	-- -- if materials ~= nil then
+		-- -- M.print("Found " .. #materials .. " override materials on reference component")
+		-- -- for i, material in ipairs(materials) do				
+			-- -- rightGloveComponent:SetMaterial(i, material)
+			-- -- M.print("Found material " .. material:get_full_name())
+		-- -- end
+	-- -- else
+		-- -- M.print("No override materials found")
+	-- -- end
+	
+	-- -- local materials = referenceGlove.SkeletalMesh.Materials
+	-- -- if materials ~= nil then
+		-- -- uevrUtils.print("Found " .. #materials .. " materials on reference component")
+		-- -- for i, material in ipairs(materials) do				
+			-- -- rightGloveComponent.SkeletalMesh:SetMaterial(i, material)
+		-- -- end
+	-- -- else
+		-- -- M.print("No materials found")
+	-- -- end
+-- end
 
 return M
 
