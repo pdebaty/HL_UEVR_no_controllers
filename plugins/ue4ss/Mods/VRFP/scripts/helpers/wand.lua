@@ -10,8 +10,10 @@ local wandTipOffset = 30.0
 local isWandHolstered = false
 local maxRetries = 10
 local bIsVisible = false
+local previousIsVisible = nil
 
 local isDebug = false
+local funcCallbacks = {}
 
 local controllerWandPositionOffset = {X=0, Y=0, Z=0}
 local controllerWandRotationOffset = {Pitch=-80, Yaw=0, Roll=0}
@@ -27,6 +29,8 @@ function M.isConnected()
 end
 function M.reset()
 	meshComponent = nil
+	bIsVisible = false
+	previousIsVisible = nil
 end
 
 function detachFromThirdPerson()
@@ -202,6 +206,8 @@ function M.setVisible(pawn, val)
 				wand:DeactivationFx()
 				bIsVisible = false
 			end
+			--if funcCallbacks["Visible"] ~= nil then funcCallbacks["Visible"](bIsVisible) end
+
 		end
 	end
 
@@ -292,15 +298,44 @@ end
 	-- end
 
 -- end
-
+-- function M.registerCallback(name, func)
+	-- funcCallbacks[name] = func
+-- end
+local function updateCallback(name)
+	if name == "Visible" and previousIsVisible ~= bIsVisible then
+		if onWandVisibilityChange ~= nil then
+			local success, response = pcall(function()		
+				onWandVisibilityChange(bIsVisible)
+			end)
+			if success == false then
+				uevrUtils.print("[updateCallback] " .. response, LogLevel.Error)
+			end
+		end
+		previousIsVisible = bIsVisible
+	end
+	-- if funcCallbacks[name] ~= nil then
+		-- if name == "Visible" and previousIsVisible ~= bIsVisible then
+			-- local success, response = pcall(function()
+				-- return funcCallbacks[name](bIsVisible)
+			-- end)
+			-- if success == false then
+				-- uevrUtils.print("[updateCallback] " .. response, LogLevel.Error)
+			-- else
+				-- previousIsVisible = bIsVisible
+			-- end		
+		-- end		
+	-- end
+end
 function M.registerHooks()	
 	RegisterHook("/Script/Toolset.Tool:ActivateFx", function(self, name)
 		--print("ActivateFx called\n")
 		bIsVisible = true
+		updateCallback("Visible")
 	end)
 	RegisterHook("/Script/Toolset.Tool:DeactivationFx", function(self, name)
 		--print("DeactivationFx called\n")
 		bIsVisible = false
+		updateCallback("Visible")
 	end)
 
 	if isDebug then

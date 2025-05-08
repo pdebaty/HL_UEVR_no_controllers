@@ -90,6 +90,13 @@ Usage
 			local pos = pawn:K2_GetActorLocation()
 			local actor = uevrUtils.spawn_actor( uevrUtils.get_transform({X=pos.X, Y=pos.Y, Z=pos.Z}), 1, nil)
 		
+	uevrUtils.getValid(object, (optional)properties) -- returns a valid object or property of an object or nil if none is found. Use this
+		in place of endless nested checks for nil on objects and their properties. Properties are passed in as an array of hierarchical 
+		property names. The first example shows how to get the property pawn.Weapon.WeaponMesh
+		example:
+			local mesh = uevrUtils.getValid(pawn,{"Weapon","WeaponMesh"})
+			local validPawn = uevrUtils.getValid(pawn) -- gets a valid pawn or nil
+	
 	uevrUtils.validate_object(object) - if the object is returned from this function then it is not nil and it exists
 		if uevrUtils.validate_object(object) ~- nil then 
 			print("Good object")
@@ -205,6 +212,11 @@ Usage
 
 	uevrUtils.createWidgetComponent(widget, (optional)removeFromViewport, (optional)twoSided, (optional)drawSize) - creates a widget component and assigns a widget to it
 	
+	uevrUtils.fixMeshFOV(mesh, propertyName, value, (optional)includeChildren, (optional)includeNiagara, (optional)showDebug) --Removes the FOV distortions that 
+		many flat FPS games apply to player and weapon meshes using ScalarParameterValues
+		example:
+			uevrUtils.fixMeshFOV(hands.getHandComponent(0), "UsePanini", 0.0, true, true, true)
+	
 	uevrUtils.registerOnInputGetStateCallback(func) - register for a your own callback when the uevr callback fires
 
 	uevrUtils.registerPreEngineTickCallback(func) - register for a your own callback when the uevr callback fires
@@ -304,6 +316,25 @@ kismet_math_library = nil
 kismet_string_library = nil 
 --uevr = nil
 -------------------------------
+-- global enums
+LogLevel = {
+    Off = 0,
+    Critical = 1,
+    Error = 2,
+    Warning = 3,
+    Info = 4,
+    Debug = 5,
+    Trace = 6,
+    Ignore = 99,
+}
+
+LogLevelString = {[0]="off",[1]="crit",[2]="error",[3]="warn",[4]="info",[5]="debug",[6]="trace",[99]="ignore"}
+
+Handed = {
+	Left = 0, 
+	Right = 1
+}
+-------------------------------
 
 local M = {}
 
@@ -311,7 +342,6 @@ local classCache = {}
 local structCache = {}
 local uevrCallbacks = {}
 local keyBindList = {}
-local isDebugOn = true
 local usingLuaVR = false
 
 function register_key_bind(keyName, callbackFunc)
@@ -509,14 +539,20 @@ function M.initUEVR(UEVR)
 	if UEVRReady ~= nil then UEVRReady(uevr) end
 end
 
+local currentLogLevel = LogLevel.Error
 function M.enableDebug(val)
-	isDebugOn = val
+	currentLogLevel = val and LogLevel.Debug or LogLevel.Off
 end
 
-function M.print(str)
+function M.setLogLevel(val)
+	currentLogLevel = val
+end
+
+function M.print(str, logLevel)
+	if logLevel == nil then logLevel = LogLevel.Debug end
 	if type(str) == "string" then
-		if isDebugOn then
-			print(str .. (usingLuaVR and "\n" or ""))
+		if logLevel <= currentLogLevel then
+			print("[" .. LogLevelString[logLevel] .. "] " .. str .. (usingLuaVR and "\n" or ""))
 		end
 	else
 		print("Failed to print a non-string" .. (usingLuaVR and "\n" or ""))
@@ -718,6 +754,24 @@ function M.validate_object(object)
     end
 end
 
+function M.getValid(object, properties)
+	if M.validate_object(object) ~= nil then
+		if properties ~= nil then
+			for i = 1 , #properties do
+				object = object[properties[i]]
+				if M.validate_object(object) == nil then
+					return nil
+				end
+			end	
+			return object
+		else
+			return object
+		end
+	else
+		return nil
+	end
+end
+
 function M.destroy_actor(actor)
 	if actor ~= nil then
 		pcall(function()
@@ -852,6 +906,7 @@ function M.find_instance_of(className, objectName)
 end
 
 function M.fname_from_string(str)
+	if str == nil then str = "" end
 	return kismet_string_library:Conv_StringToName(str)
 end
 
@@ -1047,7 +1102,7 @@ function M.getAssetDataFromPath(pathStr)
 end
 
 function M.getLoadedAsset(pathStr)
-	local fAssetData = getAssetDataFromPath(pathStr)
+	local fAssetData = M.getAssetDataFromPath(pathStr)
 	local assetRegistryHelper = M.find_first_of("Class /Script/AssetRegistry.AssetRegistryHelpers",  true)
 	if not assetRegistryHelper:IsAssetLoaded(fAssetData) then
 		local fSoftObjectPath = assetRegistryHelper:ToSoftObjectPath(fAssetData);
@@ -1057,14 +1112,14 @@ function M.getLoadedAsset(pathStr)
 	return assetRegistryHelper:GetAsset(fAssetData) 
 end
 
-function M.copyMaterials(fromComponent, toComponent)
+function M.copyMaterials(fromComponent, toComponent, showDebug)
 	if fromComponent ~= nil and toComponent ~= nil then
 		local materials = fromComponent:GetMaterials()
 		if materials ~= nil then
-			M.print("Copying materials. Found " .. #materials .. " materials on fromComponent")
+			if showDebug == true then M.print("Copying materials. Found " .. #materials .. " materials on fromComponent") end
 			for i = 1 , #materials do
 				toComponent:SetMaterial(i - 1, materials[i])
-				M.print("Material index " .. i .. ": " .. materials[i]:get_full_name())
+				if showDebug == true then M.print("Material index " .. i .. ": " .. materials[i]:get_full_name()) end
 			end
 		end
 	end
@@ -1083,47 +1138,59 @@ function M.getChildComponent(parent, name)
 	return childComponent
 end
 
-function M.detachAndDestroyComponent(component, destroyOwner)
+function M.detachAndDestroyComponent(component, destroyOwner, showDebug)
 	if component ~= nil then
-		M.print("Detaching " .. component:get_full_name())
+		if showDebug == true then M.print("Detaching " .. component:get_full_name()) end
 		component:DetachFromParent(true,false)
-		M.print("Component detached")
+		if showDebug == true then M.print("Component detached") end
 		pcall(function()
-			M.print("Getting component owner")
+			if showDebug == true then M.print("Getting component owner") end
 			local actor = component:GetOwner()
-			if actor ~= nil and actor.K2_DestroyComponent ~= nil then
-				M.print("Got component owner " .. actor:get_full_name())
-				actor:K2_DestroyComponent(component)
-				M.print("Destroyed component " .. component:get_full_name())
+			if actor ~= nil then
+				if showDebug == true then M.print("Got component owner " .. actor:get_full_name()) end
+				if actor.K2_DestroyComponent ~= nil then
+					actor:K2_DestroyComponent(component)
+					if showDebug == true then M.print("Destroyed component ") end
+				elseif component.K2_DestroyComponent ~= nil then
+					component:K2_DestroyComponent(component)
+					if showDebug == true then M.print("Destroyed component ") end
+				end
 				if destroyOwner == nil then destroyOwner = false end
 				if destroyOwner then
 					actor:K2_DestroyActor()
 				end
+			else
+				if showDebug == true then M.print("Component owner not found") end
 			end
 		end)	
 	end
 end
 
-function M.createPoseableMeshFromSkeletalMesh(skeletalMeshComponent, parent)
-	M.print("Creating PoseableMeshComponent from " .. skeletalMeshComponent:get_full_name())
+function M.createPoseableMeshFromSkeletalMesh(skeletalMeshComponent, parent, showDebug)
+	if showDebug == true then M.print("Creating PoseableMeshComponent from " .. skeletalMeshComponent:get_full_name()) end
 	local poseableComponent = nil
 	if skeletalMeshComponent ~= nil then
 		poseableComponent = M.create_component_of_class("Class /Script/Engine.PoseableMeshComponent", false, nil, nil, parent)
 		--poseableComponent:SetCollisionEnabled(0, false)
 		if poseableComponent ~= nil then
-			M.print("Created poseablemeshcomponent" .. poseableComponent:get_full_name())
+			if showDebug == true then M.print("Created " .. poseableComponent:get_full_name()) end
 			poseableComponent.SkeletalMesh = skeletalMeshComponent.SkeletalMesh		
 			--force initial update
-			poseableComponent:SetMasterPoseComponent(skeletalMeshComponent, true)
-			poseableComponent:SetMasterPoseComponent(nil, false)
-			M.print("Master pose updated")
+			if poseableComponent.SetMasterPoseComponent ~= nil then
+				poseableComponent:SetMasterPoseComponent(skeletalMeshComponent, true)
+				poseableComponent:SetMasterPoseComponent(nil, false)
+			elseif poseableComponent.SetLeaderPoseComponent ~= nil then
+				poseableComponent:SetLeaderPoseComponent(skeletalMeshComponent, true)
+				poseableComponent:SetLeaderPoseComponent(nil, false)
+			end
+			if showDebug == true then M.print("Master pose updated") end
 			
 			pcall(function()
 				poseableComponent:CopyPoseFromSkeletalComponent(skeletalMeshComponent)	
-				M.print("Pose copied")
+				if showDebug == true then M.print("Pose copied") end
 			end)	
 		
-			M.copyMaterials(skeletalMeshComponent, poseableComponent)
+			M.copyMaterials(skeletalMeshComponent, poseableComponent, showDebug)
 		else 
 			M.print("PoseableMeshComponent could not be created")
 		end
@@ -1189,6 +1256,71 @@ function M.createWidgetComponent(widget, removeFromViewport, twoSided, drawSize)
 	end
 	
 	return component
+end
+
+function M.fixMeshFOV(mesh, propertyName, value, includeChildren, includeNiagara, showDebug)
+	local logLevel = showDebug == true and LogLevel.Debug or LogLevel.Ignore
+	if M.validate_object(mesh) == nil then
+		M.print("Unable to fix mesh FOV, invalid Mesh", LogLevel.Warning)	
+	elseif propertyName == nil or propertyName == "" then
+		M.print("Unable to fix mesh FOV, invalid property name", LogLevel.Warning)
+	else
+		local propertyFName = M.fname_from_string(propertyName)	
+		if value == nil then value = 0.0 end
+		
+		local oldValue = nil
+		local newValue = nil
+		if mesh ~= nil and mesh.GetMaterials ~= nil then
+			local materials = mesh:GetMaterials()
+			if materials ~= nil then
+				if showDebug == true then M.print("Found " .. #materials .. " materials in fixMeshFOV", logLevel) end
+				for i, material in ipairs(materials) do
+					if material:is_a(M.get_class("Class /Script/Engine.MaterialInstanceConstant")) then
+						material = mesh:CreateAndSetMaterialInstanceDynamicFromMaterial(i-1, material)
+					end
+
+					if material.SetScalarParameterValue ~= nil then
+						if showDebug == true then oldValue = material:K2_GetScalarParameterValue(propertyFName) end
+						material:SetScalarParameterValue(propertyFName, value)
+						if showDebug == true then
+							newValue = material:K2_GetScalarParameterValue(propertyFName)
+							M.print("Material: " .. i .. " " .. material:get_full_name() .. " before:" .. oldValue .. " after:" .. newValue, logLevel)
+						end
+					end
+				end
+			end
+			if includeChildren == true then
+				children = mesh.AttachChildren
+				if children ~= nil then
+					for i, child in ipairs(children) do
+						if child:is_a(static_mesh_component_c) and child.GetMaterials ~= nil then
+							local materials = child:GetMaterials()
+							if materials ~= nil then
+								for i, material in ipairs(materials) do
+									if material:is_a(M.get_class("Class /Script/Engine.MaterialInstanceConstant")) then
+										material = child:CreateAndSetMaterialInstanceDynamicFromMaterial(i-1, material)
+									end
+									if material.SetScalarParameterValue ~= nil then
+										if showDebug == true then oldValue = material:K2_GetScalarParameterValue(propertyFName) end
+										material:SetScalarParameterValue(propertyFName, value)
+										if showDebug == true then
+											newValue = material:K2_GetScalarParameterValue(propertyFName)
+											M.print("Child Material: " .. i .. " " .. material:get_full_name() .. " before:" .. oldValue .. " after:" .. newValue, logLevel)
+										end
+									end
+								end
+							end
+						end
+						
+						if includeNiagara == true and child:is_a(M.get_class("Class /Script/Niagara.NiagaraComponent")) then
+							child:SetNiagaraVariableFloat(propertyName, value)
+							if showDebug == true then M.print("Child Niagara Material: " .. child:get_full_name(),logLevel) end
+						end
+					end
+				end
+			end
+		end
+	end
 end
 
 -- Following code is coutesy of markmon 

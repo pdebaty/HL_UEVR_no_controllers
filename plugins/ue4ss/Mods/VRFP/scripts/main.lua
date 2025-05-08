@@ -1,10 +1,11 @@
 local UEHelpers = require("UEHelpers")
 local Json = require("jsonStorage")
-require("config")
+require("config/config")
+require("config/config_hands")
 local uevrUtils = require("libs/uevr_utils")
 local debugModule = require("libs/uevr_debug")
 local controllers = require("libs/controllers")
-local hands = require("helpers/hands")
+local hands = require("libs/hands")
 local flickerFixer = require("libs/flicker_fixer")
 local wand = require("helpers/wand")
 local mounts = require("helpers/mounts")
@@ -12,6 +13,10 @@ local decoupledYaw = require("helpers/decoupledyaw")
 local input = require("helpers/input")
 local gesturesModule = require("gestures/gestures")
 local animation = require("libs/animation")
+-- animation.setLogLevel(LogLevel.Debug)
+-- hands.setLogLevel(LogLevel.Debug)
+uevrUtils.setLogLevel(LogLevel.Debug)
+local handAnimations = require("helpers/hand_animations")
 
 uevrUtils.enableDebug(true)
 
@@ -21,8 +26,6 @@ RegisterHook("/Script/Engine.PlayerController:SendToConsole", function(self, msg
 	end
 end)
 
-local masterPoseableComponent = nil
-local masterGlovePoseableComponent = nil
 
 local isInCinematic = false
 local isInAlohomora = true
@@ -60,9 +63,10 @@ local g_isPregame = true
 local g_eulaClicked = false
 local g_isShowingStartPageIntro = false
 
-local armsComponent = nil
-local glovesComponent = nil
-local vrBody = nil
+-- local armsComponent = nil
+-- local glovesComponent = nil
+-- local vrBody = nil
+
 
 function UEVRReady(instance)
 	print("UEVR is now ready\n")
@@ -100,226 +104,147 @@ function UEVRReady(instance)
 		prevRotation = {X=rotation.x, Y=rotation.y, Z=rotation.z}
 		--End fix
 		
-		if isFP and not isInCinematic and enableVRCameraOffset then
-			local mountPawn = mounts.getMountPawn(pawn)
-			if uevrUtils.validate_object(mountPawn) ~= nil and mountPawn.RootComponent ~= nil then
+		local success, response = pcall(function()		
+			if isFP and not isInCinematic and enableVRCameraOffset then
 				if not isDecoupledYawDisabled then
 					rotation.y = decoupledYawCurrentRot
 				end
-							
-				local currentOffset = mounts.getMountOffset()
-				temp_vec3f:set(currentOffset.X, currentOffset.Y, currentOffset.Z) -- the vector representing the offset adjustment
-				temp_vec3:set(0, 0, 1) --the axis to rotate around
-				local forwardVector = kismet_math_library:RotateAngleAxis(temp_vec3f, rotation.y, temp_vec3)
-				local pawnPos = mountPawn.RootComponent:K2_GetComponentLocation()					
-				position.x = pawnPos.x + forwardVector.X
-				position.y = pawnPos.y + forwardVector.Y
-				position.z = pawnPos.z + forwardVector.Z
+								
+				local mountPawn = mounts.getMountPawn(pawn)
+				if uevrUtils.validate_object(mountPawn) ~= nil and uevrUtils.validate_object(mountPawn.RootComponent) ~= nil and mountPawn.RootComponent.K2_GetComponentLocation ~= nil then
+					local currentOffset = mounts.getMountOffset()
+					temp_vec3f:set(currentOffset.X, currentOffset.Y, currentOffset.Z) -- the vector representing the offset adjustment
+					temp_vec3:set(0, 0, 1) --the axis to rotate around
+					local forwardVector = kismet_math_library:RotateAngleAxis(temp_vec3f, rotation.y, temp_vec3)
+					local pawnPos = mountPawn.RootComponent:K2_GetComponentLocation()					
+					position.x = pawnPos.x + forwardVector.X
+					position.y = pawnPos.y + forwardVector.Y
+					position.z = pawnPos.z + forwardVector.Z
+				end
 			end
-		end
+		end)
+		-- if success == false then
+			-- uevrUtils.print("[on_early_calculate_stereo_view_offset] " .. response, LogLevel.Error)
+		-- end
+		-- if isFP and not isInCinematic and enableVRCameraOffset then
+			-- if not isDecoupledYawDisabled then
+				-- rotation.y = decoupledYawCurrentRot
+			-- end
+							
+			-- local mountPawn = mounts.getMountPawn(pawn)
+			-- local rootComponent = uevrUtils.getValid(mountPawn,"RootComponent")
+			-- if rootComponent ~= nil and rootComponent.K2_GetComponentLocation ~= nil then
+				-- local currentOffset = mounts.getMountOffset()
+				-- local offsetVec = uevrUtils.vector(currentOffset.X, currentOffset.Y, currentOffset.Z)
+				-- --temp_vec3f:set(currentOffset.X, currentOffset.Y, currentOffset.Z) -- the vector representing the offset adjustment
+				-- --temp_vec3:set(0, 0, 1) --the axis to rotate around
+				-- local axisVec = uevrUtils.vector(0,0,1)
+				-- local forwardVector = kismet_math_library:RotateAngleAxis(offsetVec, rotation.y, axisVec)
+				-- local pawnPos = rootComponent:K2_GetComponentLocation()					
+				-- position.x = pawnPos.x + forwardVector.X
+				-- position.y = pawnPos.y + forwardVector.Y
+				-- position.z = pawnPos.z + forwardVector.Z
+			-- end
+		-- end
+
 
 	end)
 end
 
-function assetLoadedCallback(object)
-	print("here")
-end
+ECollisionChannel = {    
+	ECC_WorldStatic = 0,
+    ECC_WorldDynamic = 1,
+    ECC_Pawn = 2,
+    ECC_Visibility = 3,
+    ECC_Camera = 4,
+    ECC_PhysicsBody = 5,
+    ECC_Vehicle = 6,
+    ECC_Destructible = 7,
+    ECC_EngineTraceChannel1 = 8,
+    ECC_EngineTraceChannel2 = 9,
+    ECC_EngineTraceChannel3 = 10,
+    ECC_EngineTraceChannel4 = 11,
+    ECC_EngineTraceChannel5 = 12,
+    ECC_EngineTraceChannel6 = 13,
+    ECC_GameTraceChannel1 = 14,
+    ECC_GameTraceChannel2 = 15,
+    ECC_GameTraceChannel3 = 16,
+    ECC_GameTraceChannel4 = 17,
+    ECC_GameTraceChannel5 = 18,
+    ECC_GameTraceChannel6 = 19,
+    ECC_GameTraceChannel7 = 20,
+    ECC_GameTraceChannel8 = 21,
+    ECC_GameTraceChannel9 = 22,
+    ECC_GameTraceChannel10 = 23,
+    ECC_GameTraceChannel11 = 24,
+    ECC_GameTraceChannel12 = 25,
+    ECC_GameTraceChannel13 = 26,
+    ECC_GameTraceChannel14 = 27,
+    ECC_GameTraceChannel15 = 28,
+    ECC_GameTraceChannel16 = 29,
+    ECC_GameTraceChannel17 = 30,
+    ECC_GameTraceChannel18 = 31,
+    ECC_OverlapAll_Deprecated = 32,
+    ECC_MAX = 33,
+}
 
-function doLoadAsset()
+ECollisionEnabled = {  
+	NoCollision = 0,
+	QueryOnly = 1,
+	PhysicsOnly = 2,
+	QueryAndPhysics = 3,
+	ECollisionEnabled_MAX = 4,
+}
 
---ObjectProperty NavCollision=(NavCollision /Engine/BasicShapes/Cube.Cube.NavCollision_1)
-
-
-	--local fSoftObjectPath = kismet_system_library:MakeSoftObjectPath(path)
-	-- LoadAsset("StaticMesh /Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword")
-	-- LoadAsset("/Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword")
-	-- LoadAsset("/Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword")
-	--local latentInfo = uevrUtils.get_struct_object("ScriptStruct /Script/Engine.LatentActionInfo") 
-	-- latentInfo.CallbackTarget = *myObjectWithDerivesFromUObject
-	-- latentInfo.ExecutionFunction = "myFunctionToCall"
-	-- latentInfo.UUID = 1
-	-- latentInfo.Linkage = 0
-	
-	--kismet_system_library:OnAssetLoaded__DelegateSignature(class UObject* Loaded)
-	--kismet_system_library:LoadAsset(uevrUtils.get_world(), fSoftObjectPath, assetLoadedCallback, latentInfo)
-	-- path = "/Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword"
-	-- kismet_system_library:LoadAsset(uevrUtils.get_world(), kismet_system_library:MakeSoftObjectPath(path), assetLoadedCallback, latentInfo)
-	-- path = "StaticMesh /Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword"
-	-- kismet_system_library:LoadAsset(uevrUtils.get_world(), kismet_system_library:MakeSoftObjectPath(path), assetLoadedCallback, latentInfo)
-	-- print("Before")
-	
-	-- -- FSoftObjectPath MakeSoftObjectPath(FString PathString)
-	-- -- TSoftObjectPtr<UObject> Conv_SoftObjPathToSoftObjRef(const FSoftObjectPath& SoftObjectPath)
-	-- -- class UObject* LoadAsset_Blocking(TSoftObjectPtr<UObject> Asset)
-	-- local pathStr = "/Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword"
-	-- local path = kismet_system_library:MakeSoftObjectPath(pathStr)
-	-- local ptr = kismet_system_library:Conv_SoftObjPathToSoftObjRef(path)
-	-- local object = kismet_system_library:LoadAsset_Blocking(ptr)
-	-- print(pathStr,path.AssetPathName,path.SubPathString,ptr,object,"\n")
-	
-	-- pathStr = "/Engine/BasicShapes/Cube"
-	-- path = kismet_system_library:MakeSoftObjectPath(pathStr)
-	-- path.SubPathString = "Cube"
-	-- debugModule.dump(path)
-	-- ptr = kismet_system_library:Conv_SoftObjPathToSoftObjRef(path)
-	-- object = kismet_system_library:LoadAsset_Blocking(ptr)
-	-- --This is insane, setting SubPathString here fails and is nil in the following debug statements
-	-- path.SubPathString = "Cube"
-	-- debugModule.dump(path)
-	-- print("The path is ",path.SubPathString,"\n")
-	-- print(pathStr,path,path.AssetPathName,path.SubPathString,ptr,object,"\n")
-	
-	-- pathStr = "/Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword"
-	-- path = kismet_system_library:MakeSoftObjectPath(pathStr)
-	-- ptr = kismet_system_library:Conv_SoftObjPathToSoftObjRef(path)
-	-- object = kismet_system_library:LoadAsset_Blocking(ptr)
-	-- print(pathStr,path,ptr,object,"\n")
-	
-	-- pathStr = "SM_HW_Armor_Sword.SM_HW_Armor_Sword"
-	-- path = kismet_system_library:MakeSoftObjectPath(pathStr)
-	-- ptr = kismet_system_library:Conv_SoftObjPathToSoftObjRef(path)
-	-- object = kismet_system_library:LoadAsset_Blocking(ptr)
-	-- print(pathStr,path,ptr,object,"\n")
-	
-	-- pathStr = "SM_HW_Armor_Sword"
-	-- path = kismet_system_library:MakeSoftObjectPath(pathStr)
-	-- ptr = kismet_system_library:Conv_SoftObjPathToSoftObjRef(path)
-	-- object = kismet_system_library:LoadAsset_Blocking(ptr)
-	-- print(pathStr,path,ptr,object,"\n")
-	
-	-- pathStr = "StaticMesh /Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword"
-	-- path = kismet_system_library:MakeSoftObjectPath(pathStr)
-	-- ptr = kismet_system_library:Conv_SoftObjPathToSoftObjRef(path)
-	-- object = kismet_system_library:LoadAsset_Blocking(ptr)
-	-- print(pathStr,path,ptr,object,"\n")
-	
-print("1\n")
-	local assetRegistryHelper = uevrUtils.find_first_of("Class /Script/AssetRegistry.AssetRegistryHelpers",  true)
-print("2\n")
-	debugModule.dump(assetRegistryHelper)
-print("3\n")
-	local assetRegistry = assetRegistryHelper:GetAssetRegistry()
-print("4\n")
-	debugModule.dump(assetRegistry)
-print("5\n")
-
-	local leftComponent = uevrUtils.createStaticMeshComponent("StaticMesh /Engine/BasicShapes/Cube.Cube")
-	local fAssetData = assetRegistryHelper:CreateAssetData(leftComponent.StaticMesh, true)
-	debugModule.dump(fAssetData)
-	fAssetData.ObjectPath = uevrUtils.fname_from_string("/Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword")
-	fAssetData.PackageName = uevrUtils.fname_from_string("/Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword")
-	fAssetData.PackagePath = uevrUtils.fname_from_string("/Game/Environment/Hogwarts/Meshes/Statues")
-	fAssetData.AssetName = uevrUtils.fname_from_string("SM_HW_Armor_Sword")
-	fAssetData.AssetClass = uevrUtils.fname_from_string("StaticMesh")
-	debugModule.dump(fAssetData)
-	print("\nGetting Info\n")
-	print(assetRegistryHelper:IsValid(fAssetData),"\n")
-	print(assetRegistryHelper:IsUAsset(fAssetData),"\n")
-	print(assetRegistryHelper:IsRedirector(fAssetData),"\n")
-	print(assetRegistryHelper:IsAssetLoaded(fAssetData),"\n")
-	-- bool IsValid(const FAssetData& InAssetData);
-    -- bool IsUAsset(const FAssetData& InAssetData);
-    -- bool IsRedirector(const FAssetData& InAssetData);
-    -- bool IsAssetLoaded(const FAssetData& InAssetData);
-
-    local fSoftObjectPath = assetRegistryHelper:ToSoftObjectPath(fAssetData);
-	print("Soft Object Path",fSoftObjectPath,"\n")
-	debugModule.dump(fSoftObjectPath)
-	local asset1 = kismet_system_library:LoadAsset_Blocking(fSoftObjectPath)
-	print(asset1, "\n")
-	--local asset2 = kismet_system_library:LoadAsset_Blocking(kismet_system_library:Conv_SoftObjPathToSoftObjRef(fSoftObjectPath))
-	--print(asset2, "\n")
-
-	print("Getting asset\n")
-	local object = assetRegistryHelper:GetAsset(fAssetData) --crashes when assetRegistryHelper:IsAssetLoaded(fAssetData) is false
-	print("Got asset\n")
-	print(object,"\n")
-	print("Debug print\n")
-	debugModule.dump(object)
-	print("Done printing\n")
-	-- local leftComponent = uevrUtils.createStaticMeshComponent("StaticMesh /Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword")
-	-- local fAssetData = assetRegistryHelper:CreateAssetData(leftComponent.StaticMesh, true)
-	-- debugModule.dump(fAssetData)
-
-	local component = uevrUtils.create_component_of_class("Class /Script/Engine.StaticMeshComponent")
-	if component ~= nil then
-		local staticMesh = object
-		if staticMesh ~= nil then
-			component:SetStaticMesh(staticMesh)				
-		else
-			print("Static Mesh not found\n")
-		end
-		local leftConnected = controllers.attachComponentToController(0, component)
-	else
-		print("StaticMeshComponent not created\n")
-	end
-	
-
--- struct FAssetData
--- {
-    -- FName ObjectPath;                                                                 // 0x0000 (size: 0x8)
-    -- FName PackageName;                                                                // 0x0008 (size: 0x8)
-    -- FName PackagePath;                                                                // 0x0010 (size: 0x8)
-    -- FName AssetName;                                                                  // 0x0018 (size: 0x8)
-    -- FName AssetClass;                                                                 // 0x0020 (size: 0x8)
-
--- }; // Size: 0x60
-
-	-- NameProperty ObjectPath=/Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword
-	-- NameProperty PackageName=/Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword
-	-- NameProperty PackagePath=/Game/Environment/Hogwarts/Meshes/Statues
-	-- NameProperty AssetName=SM_HW_Armor_Sword
-	-- NameProperty AssetClass=StaticMesh
-	
-	-- NameProperty ObjectPath=/Engine/BasicShapes/Cube.Cube
-	-- NameProperty PackageName=/Engine/BasicShapes/Cube
-	-- NameProperty PackagePath=/Engine/BasicShapes
-	-- NameProperty AssetName=Cube
-	-- NameProperty AssetClass=StaticMesh
-	--const UClass* Class = UStaticMesh::StaticClass();
-	-- local smClass = uevrUtils.get_class("Class /Script/Engine.StaticMesh")
-	-- local assetData = {}
-	-- print("before\n")
-	-- assetRegistry:GetAssetsByClass(uevrUtils.fname_from_string("Class /Script/Engine.StaticMesh"), assetData, true)
-	-- print("after\n")
-	-- print(#assetData,"\n")
-	-- local assetRegistry = uevrUtils.find_first_of("Class /Script/AssetRegistry.AssetRegistry",  true)
-	-- print(assetRegistry,"\n")
-	-- local array = {}
-	-- local assetData = assetRegistry:GetAssetByObjectPath(uevrUtils.fname_from_string("/Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword"), false)
-	-- print("Here",assetData,"\n")
-	-- assetRegistry:GetAllAssets(array, false)
-	-- print(array, #array,"\n")
-	
-	--"Class /Script/AssetRegistry.AssetRegistry"
-	-- local object = kismet_system_library:LoadAsset_Blocking(kismet_system_library:MakeSoftObjectPath("/Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword"))
-	-- print(object)
-	-- object = kismet_system_library:LoadAsset_Blocking(kismet_system_library:MakeSoftObjectPath("/Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword"))
-	-- print(object)
-	-- object = kismet_system_library:LoadAsset_Blocking(kismet_system_library:MakeSoftObjectPath("StaticMesh /Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword"))
-	-- print(object)
-end
-
-
+ECollisionResponse = {
+    ECR_Ignore = 0,
+    ECR_Overlap = 1,
+    ECR_Block = 2,
+    ECR_MAX = 3,
+}
 
 function connectCube(hand)
-	--doLoadAsset()
-	local staticMesh = uevrUtils.getLoadedAsset("StaticMesh /Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword")
 	--local staticMesh = uevrUtils.getLoadedAsset("StaticMesh /Engine/BasicShapes/Cube.Cube")
 	
---debugModule.dump(staticMesh)	
-
+	local staticMesh = uevrUtils.getLoadedAsset("StaticMesh /Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword")
 	local leftComponent = uevrUtils.createStaticMeshComponent("StaticMesh /Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword")--"StaticMesh /Engine/BasicShapes/Cube.Cube")
 	local leftConnected = controllers.attachComponentToController(0, leftComponent)
 	
-	-- --LoadAsset("/Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword")
-	-- --delay(3000, function()
-	-- local leftComponent = uevrUtils.createStaticMeshComponent("StaticMesh /Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword")--"StaticMesh /Engine/BasicShapes/Cube.Cube")
-	-- local leftConnected = controllers.attachComponentToController(hand, leftComponent)
-	-- --uevrUtils.set_component_relative_transform(leftComponent, nil, nil, {X=0.03, Y=0.03, Z=0.03})
-	-- uevrUtils.set_component_relative_transform(leftComponent, nil, {Pitch=90, Yaw=0, Roll=0}, {X=0.8, Y=0.8, Z=0.8})
-	-- leftComponent:SetCollisionEnabled(3, true)
-	-- --end)
+	-- uevrUtils.set_component_relative_transform(leftComponent, nil, nil, {X=0.03, Y=0.03, Z=0.03})
+	uevrUtils.set_component_relative_transform(leftComponent, nil, {Pitch=140, Yaw=0, Roll=0}, nil, {X=0.9, Y=0.9, Z=0.9})
+	leftComponent:SetCollisionEnabled(3, true)
+	local fNameProfile =  leftComponent:GetCollisionProfileName()
+	print("Component Profile Name ",fNameProfile:to_string(),"\n")
+	print("Pawn capsule Profile Name ",pawn.CapsuleComponent:GetCollisionProfileName():to_string(),"\n")
+	leftComponent:SetCollisionProfileName(fNameProfile, true)
+	-- Component Profile Name 		Custom		
+	-- Pawn capsule Profile Name 		PlayerCapsule		
+    leftComponent:SetCollisionResponseToAllChannels(ECR_Overlap, true)
+ 	pawn.CapsuleComponent:IgnoreComponentWhenMoving(leftComponent, true)
+    -- void SetCollisionResponseToChannel(TEnumAsByte<ECollisionChannel> Channel, TEnumAsByte<ECollisionResponse> NewResponse, bool bUpdateOverlaps);
+    -- void SetCollisionResponseToAllChannels(TEnumAsByte<ECollisionResponse> NewResponse, bool bUpdateOverlaps);
+    -- void SetCollisionProfileName(FName InCollisionProfileName, bool bUpdateOverlaps);
+    -- void SetCollisionObjectType(TEnumAsByte<ECollisionChannel> Channel);
+    -- void SetCollisionEnabled(TEnumAsByte<ECollisionEnabled::Type> NewType, bool bUpdateOverlaps);
+    -- bool K2_IsQueryCollisionEnabled();
+    -- bool K2_IsPhysicsCollisionEnabled();
+    -- bool K2_IsCollisionEnabled();
+    -- void IgnoreComponentWhenMoving(class UPrimitiveComponent* Component, bool bShouldIgnore);
+    -- bool GetGenerateOverlapEvents();
+    -- TEnumAsByte<ECollisionResponse> GetCollisionResponseToChannel(TEnumAsByte<ECollisionChannel> Channel);
+    -- FName GetCollisionProfileName();
+    -- TEnumAsByte<ECollisionChannel> GetCollisionObjectType();
+    -- TEnumAsByte<ECollisionEnabled::Type> GetCollisionEnabled();
+	
+	
+
+	-- local component = uevrUtils.create_component_of_class("Class /Script/OdysseyRuntime.ExtendedOdcRepulsorComponent")
+	-- if component ~= nil then
+		-- controllers.attachComponentToController(0, component)
+	-- else
+		-- print("ExtendedOdcRepulsorComponent not created\n")
+	-- end
+
 end
 
 function initLevel()
@@ -390,7 +315,43 @@ function loadSettings()
 	print("Gesture Mode:", gestureMode, "\n")
 	print("Control Mode:", controlMode, "\n")
 	print("Crosshair visible:", useCrossHair, "\n")
+	print("Show Fog:", useVolumetricFog, "\n")
 
+end
+
+local socketOffsetName = "Reference"
+function getSocketOffset()
+	return handSocketOffsets[socketOffsetName]
+end
+function createHands()
+	local components = {}
+	hands.setOffset({X=0, Y=0, Z=0, Pitch=0, Yaw=-90, Roll=0})	
+	for name, def in pairs(handParams) do
+		components[name] = uevrUtils.getChildComponent(pawn.Mesh, name)
+	end
+	hands.create(components, handParams, handAnimations)
+	if hands.exists() then
+		socketOffsetName = "Reference"
+		if not animation.hasBone(hands.getHandComponent(isLeftHanded and Handed.Left or Handed.Right), "SKT_Reference") then
+			socketOffsetName = "Custom"
+		end
+	else
+		uevrUtils.print("Hand creation failed", LogLevel.Warning)
+	end
+end
+
+function onWandVisibilityChange(isVisible)
+	--uevrUtils.print("Wand visibility changed to " .. (isVisible and "visible" or "hidden"), LogLevel.Info)
+	if hands.exists() then
+		local handStr = isLeftHanded and "left" or "right"
+		if isVisible and not g_isShowingStartPageIntro then
+			animation.pose(handStr.."_hand", "grip_"..handStr.."_weapon")
+			animation.pose(handStr.."_glove", "grip_"..handStr.."_weapon")
+		else
+			animation.pose(handStr.."_hand", "open_"..handStr)
+			animation.pose(handStr.."_glove", "open_"..handStr)
+		end
+	end
 end
 
 function updatePlayer()
@@ -683,8 +644,11 @@ function handleFieldGuidePageChange(currentTabIndex)
 end
 
 function connectWand()
-	if showHands and hands.exists() then
-		wand.connectToSocket(mounts.getMountPawn(pawn), hands.getHandComponent(isLeftHanded and 0 or 1), "WandSocket", hands.getSocketOffset())		
+	if showHands and hands.exists() and not g_isShowingStartPageIntro then
+		wand.connectToSocket(mounts.getMountPawn(pawn), hands.getHandComponent(isLeftHanded and Handed.Left or Handed.Right), "WandSocket", getSocketOffset())	
+		local handStr = isLeftHanded and "left" or "right"
+		animation.pose(handStr.."_hand", "grip_"..handStr.."_weapon")		
+		animation.pose(handStr.."_glove", "grip_"..handStr.."_weapon")		
 	else
 		wand.connectToController(mounts.getMountPawn(pawn), isLeftHanded and 0 or 1)
 	end
@@ -742,7 +706,8 @@ function on_lazy_poll()
 	handednessCheck()
 	
 	if showHands and not hands.exists() then
-		hands.create(pawn)
+		--hands.create(pawn)
+		createHands()
 	end
 
 	if not wand.isConnected() then
@@ -783,49 +748,58 @@ function on_level_change(level)
 end
 
 function on_pre_engine_tick(engine, delta)
-	local newLocomotionMode = mounts.updateMountLocomotionMode(pawn, locomotionMode)
-	if newLocomotionMode ~= nil then 
-		setLocomotionMode(newLocomotionMode)
-	end
-	
-	isInMenu = inMenuMode()
+	local success, response = pcall(function()		
+		local newLocomotionMode = mounts.updateMountLocomotionMode(pawn, locomotionMode)
+		if newLocomotionMode ~= nil then 
+			setLocomotionMode(newLocomotionMode)
+		end
 		
-	lastWandTargetLocation, lastWandTargetDirection, lastWandPosition = wand.getWandTargetLocationAndDirection(useCrossHair and not g_isPregame)
+		isInMenu = inMenuMode()
+			
+		lastWandTargetLocation, lastWandTargetDirection, lastWandPosition = wand.getWandTargetLocationAndDirection(useCrossHair and not g_isPregame)
 
-	if isFP and not isInCinematic and uevrUtils.validate_object(pawn) ~= nil then			
-		if gestureMode == 1 and (not (g_isPregame or isInMenu or isInCinematic or not mounts.isWalking())) then
-			--print("Is wand equipped",pawn:IsWandEquipped(),"\n")
-			gesturesModule.handleGestures(pawn, gestureMode, lastWandTargetDirection, lastWandPosition, delta)
+		if isFP and not isInCinematic and uevrUtils.validate_object(pawn) ~= nil then			
+			if gestureMode == 1 and (not (g_isPregame or isInMenu or isInCinematic or not mounts.isWalking())) then
+				--print("Is wand equipped",pawn:IsWandEquipped(),"\n")
+				gesturesModule.handleGestures(pawn, gestureMode, lastWandTargetDirection, lastWandPosition, delta)
+			end
+			
+			if not isDecoupledYawDisabled then
+				alphaDiff = decoupledYaw.handleDecoupledYaw(pawn, alphaDiff, lastWandTargetDirection, lastHMDDirection, locomotionMode)
+			end
+			
+			local mountPawn = mounts.getMountPawn(pawn)
+			if uevrUtils.validate_object(mountPawn) ~= nil and uevrUtils.validate_object(mountPawn.Mesh) ~= nil and mountPawn.Mesh.bVisible == true then 
+				--print("Hiding mesh from tick\n")
+				hidePlayer(isFP)
+			end
+			
+			if useCrossHair then
+				updateCrosshair(lastWandTargetDirection, lastWandTargetLocation)
+			end
 		end
-		
-		if not isDecoupledYawDisabled then
-			alphaDiff = decoupledYaw.handleDecoupledYaw(pawn, alphaDiff, lastWandTargetDirection, lastHMDDirection, locomotionMode)
-		end
-		
-		local mountPawn = mounts.getMountPawn(pawn)
-		if uevrUtils.validate_object(mountPawn) ~= nil and uevrUtils.validate_object(mountPawn.Mesh) ~= nil and mountPawn.Mesh.bVisible == true then 
-			--print("Hiding mesh from tick\n")
-			hidePlayer(isFP)
-		end
-		
-		if useCrossHair then
-			updateCrosshair(lastWandTargetDirection, lastWandTargetLocation)
-		end
-	end
-	
+	end)
+	-- if success == false then
+		-- uevrUtils.print("[on_pre_engine_tick] " .. response, LogLevel.Error)
+	-- end
+
 end
 
 --callback for on_post_calculate_stereo_view_offset
 function on_post_calculate_stereo_view_offset(device, view_index, world_to_meters, position, rotation, is_double)
 	if view_index == 1 then
-		lastHMDDirection = kismet_math_library:GetForwardVector(rotation)
-		if lastHMDDirection.Y ~= lastHMDDirection.Y then
-			print("NAN error",rotation.x, rotation.y, rotation.z,"\n")
-			lastHMDDirection = nil
-		end
-		lastHMDPosition = position
-		lastHMDRotation = rotation
-		
+		local success, response = pcall(function()		
+			lastHMDDirection = kismet_math_library:GetForwardVector(rotation)
+			if lastHMDDirection.Y ~= lastHMDDirection.Y then
+				print("NAN error",rotation.x, rotation.y, rotation.z,"\n")
+				lastHMDDirection = nil
+			end
+			lastHMDPosition = position
+			lastHMDRotation = rotation
+		end)
+		-- if success == false then
+			-- uevrUtils.print("[on_post_calculate_stereo_view_offset] " .. response, LogLevel.Error)
+		-- end
 	end
 	-- if vrBody ~= nil then 
 		-- --vrBody:K2_SetWorldLocationAndRotation(position, rotation, false, reusable_hit_result, false) 
@@ -835,24 +809,30 @@ function on_post_calculate_stereo_view_offset(device, view_index, world_to_meter
 end
 	
 function on_xinput_get_state(retval, user_index, state)
-	if isFP and not isInCinematic then
-		local disableStickOverride = g_isPregame or isInMenu or isInCinematic or mounts.isOnBroom() or (gestureMode == 1 and gesturesModule.isCastingSpell(pawn, "Spell_Wingardium"))
-		decoupledYawCurrentRot = input.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, locomotionMode, controlMode, g_isLeftHanded, snapAngle, useSnapTurn, alphaDiff, disableStickOverride)
-		
-		if gestureMode == 1 then
-			gesturesModule.handleInput(state, g_isLeftHanded)
+	local success, response = pcall(function()		
+		if isFP and not isInCinematic then
+			local disableStickOverride = g_isPregame or isInMenu or isInCinematic or mounts.isOnBroom() or (gestureMode == 1 and gesturesModule.isCastingSpell(pawn, "Spell_Wingardium"))
+			decoupledYawCurrentRot = input.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, locomotionMode, controlMode, g_isLeftHanded, snapAngle, useSnapTurn, alphaDiff, disableStickOverride)
+			
+			if gestureMode == 1 then
+				gesturesModule.handleInput(state, g_isLeftHanded)
+			end
+			
+			if manualHideWand and mounts.isWalking() then
+				wand.handleInput(pawn, state, g_isLeftHanded)
+			end
+			
+			if showHands then
+				hands.handleInput(state, wand.isVisible())	
+			end
+			
+			handleBrokenControllers(mounts.getMountPawn(pawn), state, g_isLeftHanded)	
 		end
-		
-		if manualHideWand and mounts.isWalking() then
-			wand.handleInput(pawn, state, g_isLeftHanded)
-		end
-		
-		if showHands then
-			hands.handleInput(state, wand.isVisible())	
-		end
-		
-		handleBrokenControllers(mounts.getMountPawn(pawn), state, g_isLeftHanded)	
-	end
+	end)
+	-- if success == false then
+		-- uevrUtils.print("[on_xinput_get_state] " .. response, LogLevel.Error)
+	-- end
+
 end
 
 -- only do this once 
@@ -1068,11 +1048,13 @@ end)
 
 RegisterHook("/Script/Phoenix.UIManager:OnFadeInComplete", function(self)	
 	--print("UIManager:OnFadeInComplete",g_isShowingStartPageIntro,"\n")
-	if not g_isShowingStartPageIntro and not isPlayingMovie then
-		uevrUtils.fadeCamera(1.0, false, false, true)
-	end
-	hidePlayer(isFP)
-	isInFadeIn = false
+	local success, response = pcall(function()
+		if not g_isShowingStartPageIntro and not isPlayingMovie then
+			uevrUtils.fadeCamera(1.0, false, false, true)
+		end
+		hidePlayer(isFP)
+		isInFadeIn = false
+	end)
 end)
 
 RegisterHook("/Script/Phoenix.UIManager:OnFadeOutBegin", function(self)	
@@ -1357,64 +1339,6 @@ RegisterKeyBind(Key.F9, function()
 end)
 
 
-local currentHand = 1
-local currentIndex = 1
-local currentFinger = 1
-RegisterKeyBind(Key.NUM_EIGHT, function()
-    print("NUM8 pressed\n")
-	hands.adjustRotation(currentHand, 3, 90)
-	--hands.adjustLocation(currentHand, 3, 2)
-	--ExecuteInGameThread( function() hands.setFingerAngles(currentFinger, currentIndex, 0, 5) end)
-end)
-
-RegisterKeyBind(Key.NUM_TWO, function()
-    print("NUM2 pressed\n")
-	hands.adjustRotation(currentHand, 3, -90)
-	--hands.adjustLocation(currentHand, 3, -2)
-	--ExecuteInGameThread( function() hands.setFingerAngles(currentFinger, currentIndex, 0, -5) end)
-	-- setVisualSkeletonBoneScale(glovesComponent, boneIndex, 0.003)
-	-- boneIndex = boneIndex - 1
-	-- if boneIndex < 1 then boneIndex = 1 end
-	-- setVisualSkeletonBoneScale(glovesComponent, boneIndex, 0.006)
-end)
-
-RegisterKeyBind(Key.NUM_SIX, function()
-    print("NUM6 pressed\n")
-	hands.adjustRotation(currentHand, 1, 90)
-	--hands.adjustLocation(currentHand, 1, 2)
-	--ExecuteInGameThread( function() hands.setFingerAngles(currentFinger, currentIndex, 1, 5) end)
-end)
-RegisterKeyBind(Key.NUM_FIVE, function()
-    print("NUM6 pressed\n")
-	currentHand = (currentHand + 1) % 2
-	-- currentFinger = currentFinger + 1
-	-- if currentFinger > 10 then currentFinger = 1 end
-	-- print("Current finger joint", currentFinger, currentIndex)
-end)
-RegisterKeyBind(Key.NUM_FOUR, function()
-    print("NUM6 pressed\n")
-	hands.adjustRotation(currentHand, 1, -90)
-	--hands.adjustLocation(currentHand, 1, -2)
-	--ExecuteInGameThread( function() hands.setFingerAngles(currentFinger, currentIndex, 1, -5) end)
-end)
-RegisterKeyBind(Key.NUM_NINE, function()
-    print("NUM6 pressed\n")
-	hands.adjustRotation(currentHand, 2, 90)
-	--hands.adjustLocation(currentHand, 2, 2)
-	--ExecuteInGameThread( function() hands.setFingerAngles(currentFinger, currentIndex, 2, 5) end)
-end)
-RegisterKeyBind(Key.NUM_THREE, function()
-    print("NUM6 pressed\n")
-	hands.adjustRotation(currentHand, 2, -90)
-	--hands.adjustLocation(currentHand, 2, -2)
-	--ExecuteInGameThread( function() hands.setFingerAngles(currentFinger, currentIndex, 2, -5) end)
-end)
-RegisterKeyBind(Key.NUM_ONE, function()
-    print("NUM0 pressed\n")
-	currentIndex = currentIndex + 1
-	if currentIndex > 3 then currentIndex = 1 end
-	print("Current finger joint", currentFinger, currentIndex)
-end)
 
 
 -- *** Property dump for object 'StaticMesh /Engine/BasicShapes/Cube.Cube ***

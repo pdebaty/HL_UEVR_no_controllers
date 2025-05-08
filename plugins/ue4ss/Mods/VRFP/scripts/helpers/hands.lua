@@ -72,7 +72,7 @@ local rootOffset = {X=0, Y=0, Z=0, Pitch=0, Yaw=-90, Roll=0} --if the entire ske
 
 --some gloves dont have a valid socket reference so handle outliers here
 local socketOffsetName = "Reference"
-local socketOffsets = {Reference={X=-2.0, Y=0, Z=3.390, Pitch=80, Yaw=0, Roll=0}, Custom={X=-0.84, Y=6.9, Z=4.25, Pitch=0, Yaw=0, Roll=80}}
+local socketOffsets = {Reference={X=-2.0, Y=0, Z=3.390, Pitch=80, Yaw=0, Roll=0}, Custom={X=-0.84, Y=6.9, Z=4.45, Pitch=0, Yaw=0, Roll=80}}
 
 --used for dev/debugging
 local gloveBoneList = {40, 31, 36, 20, 25, 73, 64, 78, 83, 69}
@@ -93,6 +93,37 @@ function M.exists()
 	return rightHandComponent ~= nil or rightGloveComponent ~= nil
 end
 
+-- local handParams = 
+-- {
+	-- SkeletalRotationOffset = {Pitch=0, Yaw=0, Roll=0},
+	-- Arms = 
+	-- {
+		-- Left = 
+		-- {
+			-- Rotation = {90, 0, 90},
+			-- Location = {4, 0, -34},	
+			-- Scale = 1.2			
+		-- },
+		-- Right = 
+		-- {
+			-- Rotation = {-90, 0, -90},
+			-- Location = {-4, 0, -34},		
+			-- Scale = 1.2			
+		-- }
+	-- },
+	-- Gloves = 
+	-- {
+		-- Left = 
+		-- {
+		
+		-- },
+		-- Right = 
+		-- {
+		
+		-- }
+	-- }
+-- }
+
 function M.create(pawn)	
 	rightHandComponent = M.createComponent(pawn, "Arms", 1)
 	rightGloveComponent = M.createComponent(pawn, "Gloves", 1)
@@ -105,8 +136,8 @@ function M.create(pawn)
 		animation.add("left_glove", leftGloveComponent, handAnimations)
 		animation.add("left_hand", leftHandComponent, handAnimations)
 		
-		animation.logBoneNames(rightGloveComponent)
-		animation.logBoneNames(rightHandComponent)
+		--animation.logBoneNames(rightGloveComponent)
+		--animation.logBoneNames(rightHandComponent)
 		-- rotators are not correct when called from here. Get initial rotators from keypresses instead
 		-- animation.logBoneRotators(rightGloveComponent, gloveBoneList)
 		-- animation.logBoneRotators(rightHandComponent, handBoneList)
@@ -135,7 +166,6 @@ function M.createComponent(pawn, name, hand)
 	if uevrUtils.validate_object(pawn) ~= nil and uevrUtils.validate_object(pawn.Mesh) ~= nil then
 		--not using an existing actor as owner. Mesh affects the hands opacity so its not appropriate
 		component = animation.createPoseableComponent(animation.getChildSkeletalMeshComponent(pawn.Mesh, name), nil)
-		--component = uevrUtils.createPoseableMeshFromSkeletalMesh(animation.getChildSkeletalMeshComponent(pawn.Mesh, name), nil)
 		if component ~= nil then
 			--fixes flickering but > 1 causes a perfomance hit with dynamic shadows according to unreal doc
 			component.BoundsScale = 8.0

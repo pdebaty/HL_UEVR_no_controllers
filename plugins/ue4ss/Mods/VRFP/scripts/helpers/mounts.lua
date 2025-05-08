@@ -1,4 +1,4 @@
-require("config")
+require("config/config")
 local uevrUtils = require("libs/uevr_utils")
 
 local M = {}

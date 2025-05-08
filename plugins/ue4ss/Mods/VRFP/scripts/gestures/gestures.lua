@@ -121,10 +121,9 @@ end
 local currentTool = nil
 --spellName is spell lookup name like "Spell_Flipendo"
 local function castSpellByName(pawn, spellName)
-	uevrUtils.print("Casting spell by name " .. spellName)
-	if keepSpellActive == nil then keepSpellActive = false end	
 	local wand = getPawnWand(pawn)
 	if spellName ~= nil and spellName ~= "" and wand ~= nil then
+		uevrUtils.print("Casting spell by name " .. spellName)
 		if string.sub(spellName, 1, 6) == "Spell_" then -- this is a spell call
 			if spellName == "Spell_PewPew" then
 				castPewPew(pawn)
