@@ -454,7 +454,7 @@ function M.handleInput(state, isLeftHanded)
 			triggerPressed = true
 			--if a spell is cast via buttons (or joystick) while the trigger is in the pressed state then disable isTriggerPressed until after the next release
 			if uevrUtils.isButtonPressed(state, XINPUT_GAMEPAD_B) or uevrUtils.isButtonPressed(state, XINPUT_GAMEPAD_X) or uevrUtils.isButtonPressed(state, XINPUT_GAMEPAD_Y) or uevrUtils.isButtonPressed(state, XINPUT_GAMEPAD_A) then
-				print("Spell button press detected\n")
+				--print("Spell button press detected\n")
 				triggerPressed = false
 				triggerPressLocked = true
 			end
