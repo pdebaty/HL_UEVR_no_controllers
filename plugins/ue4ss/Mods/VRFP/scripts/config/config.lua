@@ -4,7 +4,7 @@ Locomotion Mode
 1 = Head/HMD based direction mode
 2 = Hand/Controller direction mode
 ]]--
-locomotionMode = 0
+locomotionMode = 1
 
 --[[
 Target Mode
@@ -103,3 +103,57 @@ false = Turn off Flicker Fixer
 ]]--
 useFlickerFixer = true
 
+
+configDefinition = {
+	{
+		layout = 
+		{
+			{
+				widgetType = "combo",
+				id = "locomotionMode",
+				selections = {"Manual","Head/HMD","Hand/Controller"},
+				label = "Locomotion Mode",
+				initialValue = locomotionMode
+			},
+			{
+				widgetType = "combo",
+				id = "targetingMode",
+				selections = {"Manual targeting","Auto targeting"},
+				label = "Target Mode",
+				initialValue = targetingMode
+			},
+			{
+				widgetType = "combo",
+				id = "controlMode",
+				selections = {"Basic control mode","Enhanced control mode"},
+				label = "Controller Mode",
+				initialValue = controlMode
+			},
+			{
+				widgetType = "combo",
+				id = "gestureMode",
+				selections = {"No gestures","Spells cast with drawn glyphs"},
+				label = "Gesture Mode",
+				initialValue = gestureMode
+			},
+			{
+				widgetType = "checkbox",
+				id = "useCrossHair",
+				label = "Use crosshair",
+				initialValue = useCrossHair
+			},
+			{
+				widgetType = "checkbox",
+				id = "manualHideWand",
+				label = "Manual Hide Wand",
+				initialValue = manualHideWand
+			},
+			{
+				widgetType = "checkbox",
+				id = "showHands",
+				label = "Show Hands",
+				initialValue = showHands
+			}
+		}
+	}
+}

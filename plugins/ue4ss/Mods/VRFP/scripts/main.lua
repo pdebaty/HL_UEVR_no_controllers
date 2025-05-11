@@ -62,7 +62,7 @@ local g_lastVolumetricFog = nil
 local g_isPregame = true
 local g_eulaClicked = false
 local g_isShowingStartPageIntro = false
-
+local configui = nil
 -- local armsComponent = nil
 -- local glovesComponent = nil
 -- local vrBody = nil
@@ -72,6 +72,9 @@ function UEVRReady(instance)
 	print("UEVR is now ready\n")
 
 	uevr.params.vr.recenter_view()
+	
+	configui = require("libs/configui")
+	configui.create(configDefinition)
 		
 	loadSettings()
 	initLevel()	
@@ -705,9 +708,13 @@ function on_lazy_poll()
 	mediaPlayerCheck()
 	handednessCheck()
 	
-	if showHands and not hands.exists() then
-		--hands.create(pawn)
-		createHands()
+	if showHands then
+		if not hands.exists() then
+			--hands.create(pawn)
+			createHands()
+		else
+			hands.hideHands(isInCinematic)
+		end
 	end
 
 	if not wand.isConnected() then
@@ -748,41 +755,35 @@ function on_level_change(level)
 end
 
 function on_pre_engine_tick(engine, delta)
-	local success, response = pcall(function()		
-		local newLocomotionMode = mounts.updateMountLocomotionMode(pawn, locomotionMode)
-		if newLocomotionMode ~= nil then 
-			setLocomotionMode(newLocomotionMode)
+	local newLocomotionMode = mounts.updateMountLocomotionMode(pawn, locomotionMode)
+	if newLocomotionMode ~= nil then 
+		setLocomotionMode(newLocomotionMode)
+	end
+	
+	isInMenu = inMenuMode()
+		
+	lastWandTargetLocation, lastWandTargetDirection, lastWandPosition = wand.getWandTargetLocationAndDirection(useCrossHair and not g_isPregame)
+
+	if isFP and not isInCinematic and uevrUtils.validate_object(pawn) ~= nil then			
+		if gestureMode == 1 and (not (g_isPregame or isInMenu or isInCinematic or not mounts.isWalking())) then
+			--print("Is wand equipped",pawn:IsWandEquipped(),"\n")
+			gesturesModule.handleGestures(pawn, gestureMode, lastWandTargetDirection, lastWandPosition, delta)
 		end
 		
-		isInMenu = inMenuMode()
-			
-		lastWandTargetLocation, lastWandTargetDirection, lastWandPosition = wand.getWandTargetLocationAndDirection(useCrossHair and not g_isPregame)
-
-		if isFP and not isInCinematic and uevrUtils.validate_object(pawn) ~= nil then			
-			if gestureMode == 1 and (not (g_isPregame or isInMenu or isInCinematic or not mounts.isWalking())) then
-				--print("Is wand equipped",pawn:IsWandEquipped(),"\n")
-				gesturesModule.handleGestures(pawn, gestureMode, lastWandTargetDirection, lastWandPosition, delta)
-			end
-			
-			if not isDecoupledYawDisabled then
-				alphaDiff = decoupledYaw.handleDecoupledYaw(pawn, alphaDiff, lastWandTargetDirection, lastHMDDirection, locomotionMode)
-			end
-			
-			local mountPawn = mounts.getMountPawn(pawn)
-			if uevrUtils.validate_object(mountPawn) ~= nil and uevrUtils.validate_object(mountPawn.Mesh) ~= nil and mountPawn.Mesh.bVisible == true then 
-				--print("Hiding mesh from tick\n")
-				hidePlayer(isFP)
-			end
-			
-			if useCrossHair then
-				updateCrosshair(lastWandTargetDirection, lastWandTargetLocation)
-			end
+		if not isDecoupledYawDisabled then
+			alphaDiff = decoupledYaw.handleDecoupledYaw(pawn, alphaDiff, lastWandTargetDirection, lastHMDDirection, locomotionMode)
 		end
-	end)
-	-- if success == false then
-		-- uevrUtils.print("[on_pre_engine_tick] " .. response, LogLevel.Error)
-	-- end
-
+		
+		local mountPawn = mounts.getMountPawn(pawn)
+		if uevrUtils.validate_object(mountPawn) ~= nil and uevrUtils.validate_object(mountPawn.Mesh) ~= nil and mountPawn.Mesh.bVisible == true then 
+			--print("Hiding mesh from tick\n")
+			hidePlayer(isFP)
+		end
+		
+		if useCrossHair then
+			updateCrosshair(lastWandTargetDirection, lastWandTargetLocation)
+		end
+	end
 end
 
 --callback for on_post_calculate_stereo_view_offset
@@ -801,10 +802,6 @@ function on_post_calculate_stereo_view_offset(device, view_index, world_to_meter
 			-- uevrUtils.print("[on_post_calculate_stereo_view_offset] " .. response, LogLevel.Error)
 		-- end
 	end
-	-- if vrBody ~= nil then 
-		-- --vrBody:K2_SetWorldLocationAndRotation(position, rotation, false, reusable_hit_result, false) 
-		-- vrBody:K2_SetWorldLocation(position, false, reusable_hit_result, false) 
-	-- end
 
 end
 	
