@@ -121,10 +121,9 @@ end
 local currentTool = nil
 --spellName is spell lookup name like "Spell_Flipendo"
 local function castSpellByName(pawn, spellName)
-	uevrUtils.print("Casting spell by name " .. spellName)
-	if keepSpellActive == nil then keepSpellActive = false end	
 	local wand = getPawnWand(pawn)
 	if spellName ~= nil and spellName ~= "" and wand ~= nil then
+		uevrUtils.print("Casting spell by name " .. spellName)
 		if string.sub(spellName, 1, 6) == "Spell_" then -- this is a spell call
 			if spellName == "Spell_PewPew" then
 				castPewPew(pawn)
@@ -182,6 +181,29 @@ local function castSpellByName(pawn, spellName)
 						if lookupName == toolName then
 							print("Found tool lookup name for",toolRecord:get_full_name(), toolRecord:IsLoaded(),"\n")
 							--toolRecord:IsLoaded() is false when tool wont activate. How to load tool record? AsyncLoadToolByName doesnt seem to work
+							if toolRecord:IsLoaded() == false then 
+								local name = ""
+								if string.find(toolRecord:get_full_name(), "CreatureFeedToolRecord") then
+									name = "BlueprintGeneratedClass /Game/Gameplay/ToolSet/Items/InventoryItems/CreatureFeed/BP_FeedTool_CreatureFeed.BP_FeedTool_CreatureFeed_C"
+								elseif string.find(toolRecord:get_full_name(), "CreaturePettingBrushToolRecord") then
+									name = "BlueprintGeneratedClass /Game/Gameplay/Nurturing/Creatures/Blueprints/Petting/BP_CreaturePettingTool.BP_CreaturePettingTool_C"
+								elseif string.find(toolRecord:get_full_name(), "CaptureDeviceToolRecord") then
+									name = "BlueprintGeneratedClass /Game/Gameplay/Nurturing/Creatures/Blueprints/CreatureCapture/CaptureDevice/BP_Capture_Device_New.BP_Capture_Device_New_C"
+								elseif string.find(toolRecord:get_full_name(), "HippogriffMountToolRecord") then
+									--This code works but lib:CanUseHippogriff() returns true even when youre too low a level so for now going
+									--to stick with if default way to summon is used one then can use gestures after
+									-- local lib = uevrUtils.find_first_instance("Class /Script/Phoenix.UIBlueprintFunctionLibrary", true)
+									-- if lib ~= nil and lib:CanUseHippogriff() then
+										-- name = "BlueprintGeneratedClass /Game/Gameplay/Nurturing/Creatures/Blueprints/Mounts/BP_HippogriffMountTool.BP_HippogriffMountTool_C"
+									-- else
+										-- uevrUtils.print("Can't use Hippogriff yet")
+									-- end
+								end
+								
+								if name ~= "" then
+									local tool = uevrUtils.getLoadedAsset(name)
+								end
+							end
 							found = true
 							local isUnlocked = inventoryToolSet:IsToolUsageAllowed(toolRecord) 
 							if isUnlocked then
@@ -455,7 +477,7 @@ function M.handleInput(state, isLeftHanded)
 			triggerPressed = true
 			--if a spell is cast via buttons (or joystick) while the trigger is in the pressed state then disable isTriggerPressed until after the next release
 			if uevrUtils.isButtonPressed(state, XINPUT_GAMEPAD_B) or uevrUtils.isButtonPressed(state, XINPUT_GAMEPAD_X) or uevrUtils.isButtonPressed(state, XINPUT_GAMEPAD_Y) or uevrUtils.isButtonPressed(state, XINPUT_GAMEPAD_A) then
-				print("Spell button press detected\n")
+				--print("Spell button press detected\n")
 				triggerPressed = false
 				triggerPressLocked = true
 			end

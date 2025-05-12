@@ -1,16 +1,22 @@
 local UEHelpers = require("UEHelpers")
 local Json = require("jsonStorage")
-require("config")
+require("config/config")
+require("config/config_hands")
 local uevrUtils = require("libs/uevr_utils")
 local debugModule = require("libs/uevr_debug")
 local controllers = require("libs/controllers")
-local animation = require("libs/animation")
+local hands = require("libs/hands")
 local flickerFixer = require("libs/flicker_fixer")
 local wand = require("helpers/wand")
 local mounts = require("helpers/mounts")
 local decoupledYaw = require("helpers/decoupledyaw")
 local input = require("helpers/input")
 local gesturesModule = require("gestures/gestures")
+local animation = require("libs/animation")
+-- animation.setLogLevel(LogLevel.Debug)
+-- hands.setLogLevel(LogLevel.Debug)
+uevrUtils.setLogLevel(LogLevel.Debug)
+local handAnimations = require("helpers/hand_animations")
 
 uevrUtils.enableDebug(true)
 
@@ -20,8 +26,6 @@ RegisterHook("/Script/Engine.PlayerController:SendToConsole", function(self, msg
 	end
 end)
 
-local masterPoseableComponent = nil
-local masterGlovePoseableComponent = nil
 
 local isInCinematic = false
 local isInAlohomora = true
@@ -58,12 +62,19 @@ local g_lastVolumetricFog = nil
 local g_isPregame = true
 local g_eulaClicked = false
 local g_isShowingStartPageIntro = false
+local configui = nil
+-- local armsComponent = nil
+-- local glovesComponent = nil
+-- local vrBody = nil
 
 
 function UEVRReady(instance)
 	print("UEVR is now ready\n")
 
 	uevr.params.vr.recenter_view()
+	
+	configui = require("libs/configui")
+	configui.create(configDefinition)
 		
 	loadSettings()
 	initLevel()	
@@ -96,30 +107,147 @@ function UEVRReady(instance)
 		prevRotation = {X=rotation.x, Y=rotation.y, Z=rotation.z}
 		--End fix
 		
-		if isFP and not isInCinematic and enableVRCameraOffset then
-			local mountPawn = mounts.getMountPawn(pawn)
-			if uevrUtils.validate_object(mountPawn) ~= nil and mountPawn.RootComponent ~= nil then
+		local success, response = pcall(function()		
+			if isFP and not isInCinematic and enableVRCameraOffset then
 				if not isDecoupledYawDisabled then
 					rotation.y = decoupledYawCurrentRot
 				end
-							
-				local currentOffset = mounts.getMountOffset()
-				temp_vec3f:set(currentOffset.X, currentOffset.Y, currentOffset.Z) -- the vector representing the offset adjustment
-				temp_vec3:set(0, 0, 1) --the axis to rotate around
-				local forwardVector = kismet_math_library:RotateAngleAxis(temp_vec3f, rotation.y, temp_vec3)
-				local pawnPos = mountPawn.RootComponent:K2_GetComponentLocation()					
-				position.x = pawnPos.x + forwardVector.X
-				position.y = pawnPos.y + forwardVector.Y
-				position.z = pawnPos.z + forwardVector.Z
+								
+				local mountPawn = mounts.getMountPawn(pawn)
+				if uevrUtils.validate_object(mountPawn) ~= nil and uevrUtils.validate_object(mountPawn.RootComponent) ~= nil and mountPawn.RootComponent.K2_GetComponentLocation ~= nil then
+					local currentOffset = mounts.getMountOffset()
+					temp_vec3f:set(currentOffset.X, currentOffset.Y, currentOffset.Z) -- the vector representing the offset adjustment
+					temp_vec3:set(0, 0, 1) --the axis to rotate around
+					local forwardVector = kismet_math_library:RotateAngleAxis(temp_vec3f, rotation.y, temp_vec3)
+					local pawnPos = mountPawn.RootComponent:K2_GetComponentLocation()					
+					position.x = pawnPos.x + forwardVector.X
+					position.y = pawnPos.y + forwardVector.Y
+					position.z = pawnPos.z + forwardVector.Z
+				end
 			end
-		end
+		end)
+		-- if success == false then
+			-- uevrUtils.print("[on_early_calculate_stereo_view_offset] " .. response, LogLevel.Error)
+		-- end
+		-- if isFP and not isInCinematic and enableVRCameraOffset then
+			-- if not isDecoupledYawDisabled then
+				-- rotation.y = decoupledYawCurrentRot
+			-- end
+							
+			-- local mountPawn = mounts.getMountPawn(pawn)
+			-- local rootComponent = uevrUtils.getValid(mountPawn,"RootComponent")
+			-- if rootComponent ~= nil and rootComponent.K2_GetComponentLocation ~= nil then
+				-- local currentOffset = mounts.getMountOffset()
+				-- local offsetVec = uevrUtils.vector(currentOffset.X, currentOffset.Y, currentOffset.Z)
+				-- --temp_vec3f:set(currentOffset.X, currentOffset.Y, currentOffset.Z) -- the vector representing the offset adjustment
+				-- --temp_vec3:set(0, 0, 1) --the axis to rotate around
+				-- local axisVec = uevrUtils.vector(0,0,1)
+				-- local forwardVector = kismet_math_library:RotateAngleAxis(offsetVec, rotation.y, axisVec)
+				-- local pawnPos = rootComponent:K2_GetComponentLocation()					
+				-- position.x = pawnPos.x + forwardVector.X
+				-- position.y = pawnPos.y + forwardVector.Y
+				-- position.z = pawnPos.z + forwardVector.Z
+			-- end
+		-- end
+
+
 	end)
 end
 
+ECollisionChannel = {    
+	ECC_WorldStatic = 0,
+    ECC_WorldDynamic = 1,
+    ECC_Pawn = 2,
+    ECC_Visibility = 3,
+    ECC_Camera = 4,
+    ECC_PhysicsBody = 5,
+    ECC_Vehicle = 6,
+    ECC_Destructible = 7,
+    ECC_EngineTraceChannel1 = 8,
+    ECC_EngineTraceChannel2 = 9,
+    ECC_EngineTraceChannel3 = 10,
+    ECC_EngineTraceChannel4 = 11,
+    ECC_EngineTraceChannel5 = 12,
+    ECC_EngineTraceChannel6 = 13,
+    ECC_GameTraceChannel1 = 14,
+    ECC_GameTraceChannel2 = 15,
+    ECC_GameTraceChannel3 = 16,
+    ECC_GameTraceChannel4 = 17,
+    ECC_GameTraceChannel5 = 18,
+    ECC_GameTraceChannel6 = 19,
+    ECC_GameTraceChannel7 = 20,
+    ECC_GameTraceChannel8 = 21,
+    ECC_GameTraceChannel9 = 22,
+    ECC_GameTraceChannel10 = 23,
+    ECC_GameTraceChannel11 = 24,
+    ECC_GameTraceChannel12 = 25,
+    ECC_GameTraceChannel13 = 26,
+    ECC_GameTraceChannel14 = 27,
+    ECC_GameTraceChannel15 = 28,
+    ECC_GameTraceChannel16 = 29,
+    ECC_GameTraceChannel17 = 30,
+    ECC_GameTraceChannel18 = 31,
+    ECC_OverlapAll_Deprecated = 32,
+    ECC_MAX = 33,
+}
+
+ECollisionEnabled = {  
+	NoCollision = 0,
+	QueryOnly = 1,
+	PhysicsOnly = 2,
+	QueryAndPhysics = 3,
+	ECollisionEnabled_MAX = 4,
+}
+
+ECollisionResponse = {
+    ECR_Ignore = 0,
+    ECR_Overlap = 1,
+    ECR_Block = 2,
+    ECR_MAX = 3,
+}
+
 function connectCube(hand)
-	local leftComponent = uevrUtils.createStaticMeshComponent("StaticMesh /Engine/BasicShapes/Cube.Cube")
-	local leftConnected = controllers.attachComponentToController(hand, leftComponent)
-	uevrUtils.set_component_relative_transform(leftComponent, nil, nil, {X=0.003, Y=0.003, Z=0.003})
+	--local staticMesh = uevrUtils.getLoadedAsset("StaticMesh /Engine/BasicShapes/Cube.Cube")
+	
+	local staticMesh = uevrUtils.getLoadedAsset("StaticMesh /Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword")
+	local leftComponent = uevrUtils.createStaticMeshComponent("StaticMesh /Game/Environment/Hogwarts/Meshes/Statues/SM_HW_Armor_Sword.SM_HW_Armor_Sword")--"StaticMesh /Engine/BasicShapes/Cube.Cube")
+	local leftConnected = controllers.attachComponentToController(0, leftComponent)
+	
+	-- uevrUtils.set_component_relative_transform(leftComponent, nil, nil, {X=0.03, Y=0.03, Z=0.03})
+	uevrUtils.set_component_relative_transform(leftComponent, nil, {Pitch=140, Yaw=0, Roll=0}, nil, {X=0.9, Y=0.9, Z=0.9})
+	leftComponent:SetCollisionEnabled(3, true)
+	local fNameProfile =  leftComponent:GetCollisionProfileName()
+	print("Component Profile Name ",fNameProfile:to_string(),"\n")
+	print("Pawn capsule Profile Name ",pawn.CapsuleComponent:GetCollisionProfileName():to_string(),"\n")
+	leftComponent:SetCollisionProfileName(fNameProfile, true)
+	-- Component Profile Name 		Custom		
+	-- Pawn capsule Profile Name 		PlayerCapsule		
+    leftComponent:SetCollisionResponseToAllChannels(ECR_Overlap, true)
+ 	pawn.CapsuleComponent:IgnoreComponentWhenMoving(leftComponent, true)
+    -- void SetCollisionResponseToChannel(TEnumAsByte<ECollisionChannel> Channel, TEnumAsByte<ECollisionResponse> NewResponse, bool bUpdateOverlaps);
+    -- void SetCollisionResponseToAllChannels(TEnumAsByte<ECollisionResponse> NewResponse, bool bUpdateOverlaps);
+    -- void SetCollisionProfileName(FName InCollisionProfileName, bool bUpdateOverlaps);
+    -- void SetCollisionObjectType(TEnumAsByte<ECollisionChannel> Channel);
+    -- void SetCollisionEnabled(TEnumAsByte<ECollisionEnabled::Type> NewType, bool bUpdateOverlaps);
+    -- bool K2_IsQueryCollisionEnabled();
+    -- bool K2_IsPhysicsCollisionEnabled();
+    -- bool K2_IsCollisionEnabled();
+    -- void IgnoreComponentWhenMoving(class UPrimitiveComponent* Component, bool bShouldIgnore);
+    -- bool GetGenerateOverlapEvents();
+    -- TEnumAsByte<ECollisionResponse> GetCollisionResponseToChannel(TEnumAsByte<ECollisionChannel> Channel);
+    -- FName GetCollisionProfileName();
+    -- TEnumAsByte<ECollisionChannel> GetCollisionObjectType();
+    -- TEnumAsByte<ECollisionEnabled::Type> GetCollisionEnabled();
+	
+	
+
+	-- local component = uevrUtils.create_component_of_class("Class /Script/OdysseyRuntime.ExtendedOdcRepulsorComponent")
+	-- if component ~= nil then
+		-- controllers.attachComponentToController(0, component)
+	-- else
+		-- print("ExtendedOdcRepulsorComponent not created\n")
+	-- end
+
 end
 
 function initLevel()
@@ -133,7 +261,8 @@ function initLevel()
 	controllers.createController(2) 
 	
 	wand.reset()
---	connectCube(1)
+	hands.reset()
+	--connectCube(0)
 	
 	flickerFixer.create()
 end
@@ -189,7 +318,43 @@ function loadSettings()
 	print("Gesture Mode:", gestureMode, "\n")
 	print("Control Mode:", controlMode, "\n")
 	print("Crosshair visible:", useCrossHair, "\n")
+	print("Show Fog:", useVolumetricFog, "\n")
 
+end
+
+local socketOffsetName = "Reference"
+function getSocketOffset()
+	return handSocketOffsets[socketOffsetName]
+end
+function createHands()
+	local components = {}
+	hands.setOffset({X=0, Y=0, Z=0, Pitch=0, Yaw=-90, Roll=0})	
+	for name, def in pairs(handParams) do
+		components[name] = uevrUtils.getChildComponent(pawn.Mesh, name)
+	end
+	hands.create(components, handParams, handAnimations)
+	if hands.exists() then
+		socketOffsetName = "Reference"
+		if not animation.hasBone(hands.getHandComponent(isLeftHanded and Handed.Left or Handed.Right), "SKT_Reference") then
+			socketOffsetName = "Custom"
+		end
+	else
+		uevrUtils.print("Hand creation failed", LogLevel.Warning)
+	end
+end
+
+function onWandVisibilityChange(isVisible)
+	--uevrUtils.print("Wand visibility changed to " .. (isVisible and "visible" or "hidden"), LogLevel.Info)
+	if hands.exists() then
+		local handStr = isLeftHanded and "left" or "right"
+		if isVisible and not g_isShowingStartPageIntro then
+			animation.pose(handStr.."_hand", "grip_"..handStr.."_weapon")
+			animation.pose(handStr.."_glove", "grip_"..handStr.."_weapon")
+		else
+			animation.pose(handStr.."_hand", "open_"..handStr)
+			animation.pose(handStr.."_glove", "open_"..handStr)
+		end
+	end
 end
 
 function updatePlayer()
@@ -294,7 +459,7 @@ end
 function onHandednessChanged(isLeftHanded)
 	print("Is Left handed",isLeftHanded,"\n")
 	wand.disconnect()
-	wand.connect(mounts.getMountPawn(pawn), isLeftHanded and 0 or 1)
+	connectWand()
 end
 
 function handednessCheck()
@@ -481,6 +646,49 @@ function handleFieldGuidePageChange(currentTabIndex)
 
 end
 
+function connectWand()
+	if showHands and hands.exists() and not g_isShowingStartPageIntro then
+		wand.connectToSocket(mounts.getMountPawn(pawn), hands.getHandComponent(isLeftHanded and Handed.Left or Handed.Right), "WandSocket", getSocketOffset())	
+		local handStr = isLeftHanded and "left" or "right"
+		animation.pose(handStr.."_hand", "grip_"..handStr.."_weapon")		
+		animation.pose(handStr.."_glove", "grip_"..handStr.."_weapon")		
+	else
+		wand.connectToController(mounts.getMountPawn(pawn), isLeftHanded and 0 or 1)
+	end
+end
+
+local g_shoulderGripOn = false
+function handleBrokenControllers(pawn, state, isLeftHanded)
+	local gripButton = XINPUT_GAMEPAD_RIGHT_SHOULDER
+	if isLeftHanded then
+		gripButton = XINPUT_GAMEPAD_LEFT_SHOULDER
+	end
+	if not g_shoulderGripOn and uevrUtils.isButtonPressed(state, gripButton)  then
+		g_shoulderGripOn = true
+		local headLocation = controllers.getControllerLocation(2)
+		local handLocation = controllers.getControllerLocation(isLeftHanded and 0 or 1)
+		if headLocation ~= nil and handLocation ~= nil then
+			local distance = kismet_math_library:Vector_Distance(headLocation, handLocation)
+			--print(distance,"\n")
+			if distance < 30 then	
+				wand.connectAltWand(pawn, isLeftHanded and 0 or 1)
+				if showHands then
+					wand.disconnect()
+					wand.reset()
+					hands.destroyHands()
+					hands.reset()
+				end
+			end
+		end
+	elseif g_shoulderGripOn and uevrUtils.isButtonNotPressed(state, gripButton) then
+		delay(1000, function()
+			g_shoulderGripOn = false
+		end)
+	end
+
+end
+
+
 function on_lazy_poll()
 	snapAngle = uevrUtils.PositiveIntegerMask(uevr.params.vr:get_mod_value("VR_SnapturnTurnAngle"))
 	useSnapTurn = uevr.params.vr.is_snap_turn_enabled()
@@ -499,13 +707,23 @@ function on_lazy_poll()
 	preGameStateCheck()
 	mediaPlayerCheck()
 	handednessCheck()
-	if not wand.isConnected() then
-		wand.connect(mounts.getMountPawn(pawn), isLeftHanded and 0 or 1)
+	
+	if showHands then
+		if not hands.exists() then
+			--hands.create(pawn)
+			createHands()
+		else
+			hands.hideHands(isInCinematic)
+		end
 	end
+
+	if not wand.isConnected() then
+		connectWand()
+	end
+	
 	if manualHideWand then
 		wand.updateVisibility(mounts.getMountPawn(pawn), g_isPregame or isInMenu or isInCinematic or not mounts.isWalking() )
 	end
-	
 	
 	if useVolumetricFog ~= nil and g_lastVolumetricFog ~= useVolumetricFog then 
 		if useVolumetricFog then
@@ -520,6 +738,15 @@ function on_lazy_poll()
 	if targetingMode == 0 and pc ~= nil then
 		pc:ActivateAutoTargetSense(false, true)
 	end
+	
+	-- local wandPosition = wand.getPosition()
+	-- local handPosition = hands.getPosition(1)
+	-- if wandPosition ~= nil and handPosition ~= nil then
+		-- distance = kismet_math_library:Vector_Distance(wandPosition, handPosition)
+		-- print("Distance is",distance,"\n")
+		-- wand.updateOffsetPosition(handPosition)
+	-- end
+
 end
 
 function on_level_change(level)
@@ -557,37 +784,52 @@ function on_pre_engine_tick(engine, delta)
 			updateCrosshair(lastWandTargetDirection, lastWandTargetLocation)
 		end
 	end
-
 end
 
 --callback for on_post_calculate_stereo_view_offset
 function on_post_calculate_stereo_view_offset(device, view_index, world_to_meters, position, rotation, is_double)
 	if view_index == 1 then
-		lastHMDDirection = kismet_math_library:GetForwardVector(rotation)
-		if lastHMDDirection.Y ~= lastHMDDirection.Y then
-			print("NAN error",rotation.x, rotation.y, rotation.z,"\n")
-			lastHMDDirection = nil
-		end
-		lastHMDPosition = position
-		lastHMDRotation = rotation
+		local success, response = pcall(function()		
+			lastHMDDirection = kismet_math_library:GetForwardVector(rotation)
+			if lastHMDDirection.Y ~= lastHMDDirection.Y then
+				print("NAN error",rotation.x, rotation.y, rotation.z,"\n")
+				lastHMDDirection = nil
+			end
+			lastHMDPosition = position
+			lastHMDRotation = rotation
+		end)
+		-- if success == false then
+			-- uevrUtils.print("[on_post_calculate_stereo_view_offset] " .. response, LogLevel.Error)
+		-- end
 	end
+
 end
 	
 function on_xinput_get_state(retval, user_index, state)
-	if isFP and not isInCinematic then
-		local disableStickOverride = g_isPregame or isInMenu or isInCinematic or mounts.isOnBroom() or (gestureMode == 1 and gesturesModule.isCastingSpell(pawn, "Spell_Wingardium"))
-		decoupledYawCurrentRot = input.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, locomotionMode, controlMode, g_isLeftHanded, snapAngle, useSnapTurn, alphaDiff, disableStickOverride)
-		
-		if gestureMode == 1 then
-			gesturesModule.handleInput(state, g_isLeftHanded)
+	local success, response = pcall(function()		
+		if isFP and not isInCinematic then
+			local disableStickOverride = g_isPregame or isInMenu or isInCinematic or mounts.isOnBroom() or (gestureMode == 1 and gesturesModule.isCastingSpell(pawn, "Spell_Wingardium"))
+			decoupledYawCurrentRot = input.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, locomotionMode, controlMode, g_isLeftHanded, snapAngle, useSnapTurn, alphaDiff, disableStickOverride)
+			
+			if gestureMode == 1 then
+				gesturesModule.handleInput(state, g_isLeftHanded)
+			end
+			
+			if manualHideWand and mounts.isWalking() then
+				wand.handleInput(pawn, state, g_isLeftHanded)
+			end
+			
+			if showHands then
+				hands.handleInput(state, wand.isVisible())	
+			end
+			
+			handleBrokenControllers(mounts.getMountPawn(pawn), state, g_isLeftHanded)	
 		end
-		
-		if manualHideWand and mounts.isWalking() then
-			wand.handleInput(pawn, state, g_isLeftHanded)
-		end
-		
-		wand.handleBrokenWand(mounts.getMountPawn(pawn), state, g_isLeftHanded)		
-	end
+	end)
+	-- if success == false then
+		-- uevrUtils.print("[on_xinput_get_state] " .. response, LogLevel.Error)
+	-- end
+
 end
 
 -- only do this once 
@@ -687,7 +929,7 @@ function hookLateFunctions()
 		end)
 				
 		wand.registerLateHooks()
-				
+						
 		if g_isPregame then
 			RegisterHook("/Game/UI/HYDRA/UI_BP_EULA.UI_BP_EULA_C:AcceptClicked", function(self)
 				print("UI_BP_EULA.UI_BP_EULA_C:AcceptClicked called\n")
@@ -756,6 +998,13 @@ RegisterHook("/Script/Phoenix.UIManager:ExitFieldGuideWithReason", function(self
 	uevrUtils.set_2D_mode(false)
 	setLocomotionMode(locomotionMode)
 	enableVRCameraOffset = true
+	--always updating hands here until we can find a specific call for glove changes
+	if showHands then
+		wand.disconnect()
+		wand.reset()
+		hands.destroyHands()
+		hands.reset()
+	end
 end)
 
 RegisterHook("/Script/Phoenix.UIManager:MissionFailScreenLoaded", function(self)	
@@ -796,11 +1045,13 @@ end)
 
 RegisterHook("/Script/Phoenix.UIManager:OnFadeInComplete", function(self)	
 	--print("UIManager:OnFadeInComplete",g_isShowingStartPageIntro,"\n")
-	if not g_isShowingStartPageIntro and not isPlayingMovie then
-		uevrUtils.fadeCamera(1.0, false, false, true)
-	end
-	hidePlayer(isFP)
-	isInFadeIn = false
+	local success, response = pcall(function()
+		if not g_isShowingStartPageIntro and not isPlayingMovie then
+			uevrUtils.fadeCamera(1.0, false, false, true)
+		end
+		hidePlayer(isFP)
+		isInFadeIn = false
+	end)
 end)
 
 RegisterHook("/Script/Phoenix.UIManager:OnFadeOutBegin", function(self)	
@@ -900,119 +1151,38 @@ RegisterHook("/Script/Phoenix.BrewingSite:BeginBrewingPotion", function(self)
 end)
 
 
-function overrideCharacterOpacity()
-	if uevrUtils.validate_object(pawn) and uevrUtils.validate_object(pawn.Mesh) then
-		local propertyName = "FINALOPACITY"
-		local propertyFName = uevrUtils.fname_from_string(propertyName)	
-		local value = 1.0
-		local materials = pawn.Mesh.OverrideMaterials
-		for i, material in ipairs(materials) do
-			--local oldValue = material:K2_GetScalarParameterValue(propertyFName)
-			material:SetScalarParameterValue(propertyFName, value)
---			material.Parent:SetScalarParameterValue(propertyFName, value)
-			--local newValue = material:K2_GetScalarParameterValue(propertyFName)
-			--print("Child Material:",i, material:get_full_name(), oldValue, newValue,"\n")
-		end
+-- function overrideCharacterOpacity()
+	-- if uevrUtils.validate_object(pawn) and uevrUtils.validate_object(pawn.Mesh) then
+		-- local propertyName = "FINALOPACITY"
+		-- local propertyFName = uevrUtils.fname_from_string(propertyName)	
+		-- local value = 1.0
+		-- local materials = pawn.Mesh.OverrideMaterials
+		-- for i, material in ipairs(materials) do
+			-- --local oldValue = material:K2_GetScalarParameterValue(propertyFName)
+			-- material:SetScalarParameterValue(propertyFName, value)
+-- --			material.Parent:SetScalarParameterValue(propertyFName, value)
+			-- --local newValue = material:K2_GetScalarParameterValue(propertyFName)
+			-- --print("Child Material:",i, material:get_full_name(), oldValue, newValue,"\n")
+		-- end
 		
-			-- children = pawn.Mesh.AttachChildren
-			-- if children ~= nil then
-				-- for i, child in ipairs(children) do
-					-- --if child:is_a(static_mesh_component_c) then
-						-- local materials = child.OverrideMaterials
-						-- for i, material in ipairs(materials) do
-							-- --local oldValue = material:K2_GetScalarParameterValue(propertyFName)
-							-- material:SetScalarParameterValue(propertyFName, value)
-							-- --local newValue = material:K2_GetScalarParameterValue(propertyFName)
-							-- --print("Child Material:",i, material:get_full_name(), oldValue, newValue,"\n")
-						-- end
-					-- --end
+			-- -- children = pawn.Mesh.AttachChildren
+			-- -- if children ~= nil then
+				-- -- for i, child in ipairs(children) do
+					-- -- --if child:is_a(static_mesh_component_c) then
+						-- -- local materials = child.OverrideMaterials
+						-- -- for i, material in ipairs(materials) do
+							-- -- --local oldValue = material:K2_GetScalarParameterValue(propertyFName)
+							-- -- material:SetScalarParameterValue(propertyFName, value)
+							-- -- --local newValue = material:K2_GetScalarParameterValue(propertyFName)
+							-- -- --print("Child Material:",i, material:get_full_name(), oldValue, newValue,"\n")
+						-- -- end
+					-- -- --end
 					
-				-- end
-			-- end
+				-- -- end
+			-- -- end
 
-	end
-end
-
-function createPoseableTorso(skeletalMeshComponent)
-	local poseableComponent = nil
-	if skeletalMeshComponent ~= nil then
-		poseableComponent = uevrUtils.createPoseableMeshFromSkeletalMesh(skeletalMeshComponent)
-		poseableComponent:K2_AttachTo(skeletalMeshComponent, uevrUtils.fname_from_string(""), 0, false)
-		poseableComponent:SetVisibility(false,true)
-		--controllers.attachComponentToController(0, poseableComponent)
-		--uevrUtils.set_component_relative_transform(meshComponent, {X=50, Y=50, Z=0})			
-
-		skeletalMeshComponent:SetMasterPoseComponent(poseableComponent, true)
-	end
-	return poseableComponent
-end
-
-function createPoseableHands()
-	--local skeletalMeshComponent = uevrUtils.find_instance_of("Class /Script/Engine.SkeletalMeshComponent", "Gloves")
-	local skeletalMeshComponent = nil
-	local children = pawn.Mesh.AttachChildren
-    for i, child in ipairs(children) do
-		if  string.find(child:get_full_name(), "Gloves") then
-			skeletalMeshComponent = child
-		end
-	end
-
-	local poseableComponent = nil
-	if skeletalMeshComponent ~= nil then
-		poseableComponent = uevrUtils.createPoseableMeshFromSkeletalMesh(skeletalMeshComponent)
-		--poseableComponent = copyPoseableMeshFromSkeletalMesh(skeletalMeshComponent)
-		poseableComponent:K2_AttachTo(skeletalMeshComponent, uevrUtils.fname_from_string(""), 0, false)
-		poseableComponent:SetVisibility(false,true)
-	--controllers.attachComponentToController(0, poseableComponent)
-		--uevrUtils.set_component_relative_transform(meshComponent, {X=10, Y=10, Z=10})			
-
-		--skeletalMeshComponent:SetMasterPoseComponent(poseableComponent, true)
-	end
-	return poseableComponent
-end
-
-function updatePoseableComponent(poseableComponent)
-	if poseableComponent ~= nil then
-		local boneSpace = 0
-		
-		local boneFName = uevrUtils.fname_from_string("RightHand")		
-		local location = controllers.getControllerLocation(1)
-		local rotation = controllers.getControllerRotation(1)		
-		rotation.Pitch = -rotation.Pitch 
-		rotation.Yaw = rotation.Yaw + 180 
-		rotation.Roll = -rotation.Roll
-		poseableComponent:SetBoneLocationByName(boneFName, location, boneSpace)
-		poseableComponent:SetBoneRotationByName(boneFName, rotation, boneSpace)
-		
-		poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("RightShoulder"), location, boneSpace);
-		poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("RightArm"), location, boneSpace);
-		poseableComponent:SetBoneLocationByName(uevrUtils.fname_from_string("RightForeArm"), location, boneSpace);
-
-		local miniScale = 0.0001
-		poseableComponent:SetBoneScaleByName(poseableComponent:GetBoneName(1), vector_3f(miniScale, miniScale, miniScale), boneSpace);
-		poseableComponent:SetBoneScaleByName(boneFName, vector_3f(1, 1, 1), boneSpace);		
-
-		if debugHands then
-			print(location.X,location.Y,location.Z,"\n")
-		end
-		
-		boneFName = uevrUtils.fname_from_string("LeftHand")		
-		location = controllers.getControllerLocation(0)
-		rotation = controllers.getControllerRotation(0)		
-		rotation.Roll = rotation.Roll + 180 
-		poseableComponent:SetBoneLocationByName(boneFName, location, boneSpace)
-		poseableComponent:SetBoneRotationByName(boneFName, rotation, boneSpace)
-	end
-end
-
-function logMeshComponentChildren(meshComponent)
-	local children = meshComponent.AttachChildren
-    for i, child in ipairs(children) do
-		uevrUtils.print(child:get_full_name())
-	end
-
-end
-
+	-- end
+-- end
 
 
 
@@ -1022,7 +1192,7 @@ RegisterKeyBind(Key.F1, function()
     isFP = not isFP
 	updatePlayer()
 	if isFP then
-		wand.connect(mounts.getMountPawn(pawn), g_isLeftHanded and 0 or 1)
+		connectWand()
 		setLocomotionMode(locomotionMode)
 	else
 		wand.disconnect()
@@ -1033,18 +1203,36 @@ end)
 local inNativeMode = true
 RegisterKeyBind(Key.F2, function()
     print("F2 pressed\n")
+	ExecuteInGameThread( function()
+		--connectCube(0)
+		uevrUtils.print(animation.getRootBoneOfBone(hands.getHandComponent(1), "RightForeArm"):to_string())
+		animation.getHierarchyForBone(hands.getHandComponent(1), "RightForeArm")
+	end)
+
+	-- ExecuteInGameThread( function()
+		-- hands.changeGloveMaterials()
+	-- end)
+	-- ExecuteInGameThread( function()
+		-- --vrBody = uevrUtils.createStaticMeshComponent("StaticMesh /Engine/EngineMeshes/Sphere.Sphere")
+		-- rightGlovesComponent = animation.createPoseableComponent(animation.getChildSkeletalMeshComponent(pawn.Mesh, "Gloves"))
+		-- controllers.attachComponentToController(1, rightGlovesComponent)
+		-- uevrUtils.set_component_relative_transform(rightGlovesComponent, {X=0, Y=0, Z=0}, {Pitch=0, Yaw=-90, Roll=0})		
+
+		-- armsComponent = createPoseableComponent(getChildSkeletalMeshComponent(pawn.Mesh, "Arms"))
+		-- animation.createSkeletalVisualization(glovesComponent)
+	-- end)
 	
-	print(
-	pawn:IsPlayerControlled(),
-    pawn:IsPawnControlled(),
-    pawn:IsMoveInputIgnored(),
-    pawn:IsLocallyControlled(),
-    pawn:IsControlled(),
-    pawn:IsBotControlled(),
-	Statics:IsGamePaused(uevrUtils.get_world()),
-	uiManager:InPauseMode(),
-	uiManager:GetIsUIShown(),
-	"\n")
+	-- print(
+	-- pawn:IsPlayerControlled(),
+    -- pawn:IsPawnControlled(),
+    -- pawn:IsMoveInputIgnored(),
+    -- pawn:IsLocallyControlled(),
+    -- pawn:IsControlled(),
+    -- pawn:IsBotControlled(),
+	-- Statics:IsGamePaused(uevrUtils.get_world()),
+	-- uiManager:InPauseMode(),
+	-- uiManager:GetIsUIShown(),
+	-- "\n")
 
 	-- ExecuteInGameThread( function()
 		-- print("1\n")
@@ -1075,6 +1263,7 @@ RegisterKeyBind(Key.F2, function()
 	-- end
 
 end)
+local boneIndex = 1
 
 RegisterKeyBind(Key.F3, function()
     print("F3 pressed\n")
@@ -1146,162 +1335,55 @@ RegisterKeyBind(Key.F9, function()
 	Json.saveTable(targetingMode, "VRFPSettings.json", "targetingModeSaved")
 end)
 
--- [2025-03-28 16:47:53.7592097] [Lua] SkeletalMeshComponent /Game/Levels/Overland/Overland.Overland.PersistentLevel.BP_Biped_Player_C_2147460116.Customization.Hair
--- [2025-03-28 16:47:53.7592190] [Lua] SkeletalMeshComponent /Game/Levels/Overland/Overland.Overland.PersistentLevel.BP_Biped_Player_C_2147460116.Customization.Arms
--- [2025-03-28 16:47:53.7592277] [Lua] SkeletalMeshComponent /Game/Levels/Overland/Overland.Overland.PersistentLevel.BP_Biped_Player_C_2147460116.Customization.Robe
--- [2025-03-28 16:47:53.7592361] [Lua] SkeletalMeshComponent /Game/Levels/Overland/Overland.Overland.PersistentLevel.BP_Biped_Player_C_2147460116.Customization.Glasses
--- [2025-03-28 16:47:53.7592433] [Lua] SkeletalMeshComponent /Game/Levels/Overland/Overland.Overland.PersistentLevel.BP_Biped_Player_C_2147460116.Customization.Gloves
--- [2025-03-28 16:47:53.7592510] [Lua] SkeletalMeshComponent /Game/Levels/Overland/Overland.Overland.PersistentLevel.BP_Biped_Player_C_2147460116.Customization.Hat
--- [2025-03-28 16:47:53.7592585] [Lua] SkeletalMeshComponent /Game/Levels/Overland/Overland.Overland.PersistentLevel.BP_Biped_Player_C_2147460116.Customization.Scarf
--- [2025-03-28 16:47:53.7592657] [Lua] SkeletalMeshComponent /Game/Levels/Overland/Overland.Overland.PersistentLevel.BP_Biped_Player_C_2147460116.Customization.Upper
--- [2025-03-28 16:47:53.7592732] [Lua] SkeletalMeshComponent /Game/Levels/Overland/Overland.Overland.PersistentLevel.BP_Biped_Player_C_2147460116.Customization.Lower
--- [2025-03-28 16:47:53.7592802] [Lua] SkeletalMeshComponent /Game/Levels/Overland/Overland.Overland.PersistentLevel.BP_Biped_Player_C_2147460116.Customization.Socks
--- [2025-03-28 16:47:53.7592869] [Lua] SkeletalMeshComponent /Game/Levels/Overland/Overland.Overland.PersistentLevel.BP_Biped_Player_C_2147460116.Customization.Shoes
 
--- [2025-03-29 18:07:12.0525646] [Lua] 147		bones[2025-03-29 18:07:12.0526139] [Lua] 1		IK_Spine3		
--- [2025-03-29 18:07:12.0526545] [Lua] 2		IK_RightHand		
--- [2025-03-29 18:07:12.0526843] [Lua] 3		SKT_FX_Reference2		
--- [2025-03-29 18:07:12.0527124] [Lua] 4		SKT_FX_Reference1		
--- [2025-03-29 18:07:12.0527392] [Lua] 5		SKT_Reference		
--- [2025-03-29 18:07:12.0527685] [Lua] 6		IK_LeftHand		
--- [2025-03-29 18:07:12.0528061] [Lua] 7		SKT_HeadCamera		
--- [2025-03-29 18:07:12.0528345] [Lua] 8		Hips		
--- [2025-03-29 18:07:12.0528616] [Lua] 9		RightUpLeg		
--- [2025-03-29 18:07:12.0528885] [Lua] 10		RightLeg		
--- [2025-03-29 18:07:12.0529341] [Lua] 11		RightLegTwist1		
--- [2025-03-29 18:07:12.0529859] [Lua] 12		RightFoot		
--- [2025-03-29 18:07:12.0530407] [Lua] 13		RightToeBase		
--- [2025-03-29 18:07:12.0530942] [Lua] 14		RightToeBaseEnd		
--- [2025-03-29 18:07:12.0531405] [Lua] 15		RightUpLegTwist1		
--- [2025-03-29 18:07:12.0531805] [Lua] 16		RightUpLegTwist2		
--- [2025-03-29 18:07:12.0532100] [Lua] 17		SKT_FX_Hips		
--- [2025-03-29 18:07:12.0532385] [Lua] 18		Spine		
--- [2025-03-29 18:07:12.0532666] [Lua] 19		Spine1		
--- [2025-03-29 18:07:12.0532933] [Lua] 20		Spine2		
--- [2025-03-29 18:07:12.0533205] [Lua] 21		Spine3		
--- [2025-03-29 18:07:12.0533484] [Lua] 22		SKT_Back		
--- [2025-03-29 18:07:12.0533754] [Lua] 23		SKT_Chest		
--- [2025-03-29 18:07:12.0534020] [Lua] 24		LeftShoulder		
--- [2025-03-29 18:07:12.0534331] [Lua] 25		LeftArm		
--- [2025-03-29 18:07:12.0534619] [Lua] 26		LeftForeArm		
--- [2025-03-29 18:07:12.0534936] [Lua] 27		LeftForeArmTwist3		
--- [2025-03-29 18:07:12.0535399] [Lua] 28		LeftForeArmTwist1		
--- [2025-03-29 18:07:12.0535829] [Lua] 29		LeftHand		
--- [2025-03-29 18:07:12.0536144] [Lua] 30		LeftInHandPinky		
--- [2025-03-29 18:07:12.0536414] [Lua] 31		LeftHandPinky1		
--- [2025-03-29 18:07:12.0536671] [Lua] 32		LeftHandPinky2		
--- [2025-03-29 18:07:12.0536933] [Lua] 33		LeftHandPinky3		
--- [2025-03-29 18:07:12.0537202] [Lua] 34		LeftHandPinky4		
--- [2025-03-29 18:07:12.0537462] [Lua] 35		SKT_LeftHand		
--- [2025-03-29 18:07:12.0537736] [Lua] 36		LeftInHandIndex		
--- [2025-03-29 18:07:12.0538005] [Lua] 37		LeftHandIndex1		
--- [2025-03-29 18:07:12.0538267] [Lua] 38		LeftHandIndex2		
--- [2025-03-29 18:07:12.0538576] [Lua] 39		LeftHandIndex3		
--- [2025-03-29 18:07:12.0538834] [Lua] 40		LeftHandIndex4		
--- [2025-03-29 18:07:12.0539091] [Lua] 41		LeftInHandRing		
--- [2025-03-29 18:07:12.0539352] [Lua] 42		LeftHandRing1		
--- [2025-03-29 18:07:12.0539613] [Lua] 43		LeftHandRing2		
--- [2025-03-29 18:07:12.0539869] [Lua] 44		LeftHandRing3		
--- [2025-03-29 18:07:12.0540123] [Lua] 45		LeftHandRing4		
--- [2025-03-29 18:07:12.0540387] [Lua] 46		SKT_FX_LeftHand		
--- [2025-03-29 18:07:12.0540646] [Lua] 47		LeftHandThumb1		
--- [2025-03-29 18:07:12.0540903] [Lua] 48		LeftHandThumb2		
--- [2025-03-29 18:07:12.0541157] [Lua] 49		LeftHandThumb3		
--- [2025-03-29 18:07:12.0541412] [Lua] 50		LeftHandThumb4		
--- [2025-03-29 18:07:12.0541673] [Lua] 51		LeftInHandMiddle		
--- [2025-03-29 18:07:12.0541928] [Lua] 52		LeftHandMiddle1		
--- [2025-03-29 18:07:12.0542187] [Lua] 53		LeftHandMiddle2		
--- [2025-03-29 18:07:12.0542460] [Lua] 54		LeftHandMiddle3		
--- [2025-03-29 18:07:12.0542724] [Lua] 55		LeftHandMiddle4		
--- [2025-03-29 18:07:12.0542980] [Lua] 56		LeftForeArmTwist2		
--- [2025-03-29 18:07:12.0543235] [Lua] 57		LeftArmTwist1		
--- [2025-03-29 18:07:12.0543498] [Lua] 58		LeftArmTwist2		
--- [2025-03-29 18:07:12.0543760] [Lua] 59		Neck		
--- [2025-03-29 18:07:12.0544011] [Lua] 60		Neck1		
--- [2025-03-29 18:07:12.0544272] [Lua] 61		head		
--- [2025-03-29 18:07:12.0544541] [Lua] 62		SKT_Head		
--- [2025-03-29 18:07:12.0544795] [Lua] 63		HeadEnd		
--- [2025-03-29 18:07:12.0545053] [Lua] 64		face		
--- [2025-03-29 18:07:12.0545310] [Lua] 65		eye_left		
--- [2025-03-29 18:07:12.0545564] [Lua] 66		nose		
--- [2025-03-29 18:07:12.0545859] [Lua] 67		jaw		
--- [2025-03-29 18:07:12.0546125] [Lua] 68		lip_corners		
--- [2025-03-29 18:07:12.0546378] [Lua] 69		lip_upper		
--- [2025-03-29 18:07:12.0546642] [Lua] 70		lip_lower		
--- [2025-03-29 18:07:12.0546894] [Lua] 71		eye_lid_right		
--- [2025-03-29 18:07:12.0547150] [Lua] 72		eye_lid_in_right		
--- [2025-03-29 18:07:12.0547574] [Lua] 73		eye_lid_out_right		
--- [2025-03-29 18:07:12.0547865] [Lua] 74		mouth_bag		
--- [2025-03-29 18:07:12.0548155] [Lua] 75		tongue_jaw		
--- [2025-03-29 18:07:12.0548423] [Lua] 76		tongue_01		
--- [2025-03-29 18:07:12.0548686] [Lua] 77		tongue_02		
--- [2025-03-29 18:07:12.0548944] [Lua] 78		tongue_03		
--- [2025-03-29 18:07:12.0549274] [Lua] 79		tongue_04		
--- [2025-03-29 18:07:12.0549731] [Lua] 80		tongue_05		
--- [2025-03-29 18:07:12.0550247] [Lua] 81		tongue_06		
--- [2025-03-29 18:07:12.0550699] [Lua] 82		teeth_lwr		
--- [2025-03-29 18:07:12.0551106] [Lua] 83		teeth_upr		
--- [2025-03-29 18:07:12.0551577] [Lua] 84		eye_right		
--- [2025-03-29 18:07:12.0551849] [Lua] 85		eye_lid_left		
--- [2025-03-29 18:07:12.0552123] [Lua] 86		eye_lid_in_left		
--- [2025-03-29 18:07:12.0552390] [Lua] 87		eye_lid_out_left		
--- [2025-03-29 18:07:12.0552655] [Lua] 88		RightShoulder		
--- [2025-03-29 18:07:12.0552917] [Lua] 89		RightArm		
--- [2025-03-29 18:07:12.0553178] [Lua] 90		RightArmTwist1		
--- [2025-03-29 18:07:12.0553459] [Lua] 91		RightForeArm		
--- [2025-03-29 18:07:12.0553781] [Lua] 92		RightHand		
--- [2025-03-29 18:07:12.0554060] [Lua] 93		SKT_FX_RightHand		
--- [2025-03-29 18:07:12.0554319] [Lua] 94		RightHandThumb1		
--- [2025-03-29 18:07:12.0554584] [Lua] 95		RightHandThumb2		
--- [2025-03-29 18:07:12.0554877] [Lua] 96		RightHandThumb3		
--- [2025-03-29 18:07:12.0555147] [Lua] 97		RightHandThumb4		
--- [2025-03-29 18:07:12.0555406] [Lua] 98		RightInHandMiddle		
--- [2025-03-29 18:07:12.0555664] [Lua] 99		RightHandMiddle1		
--- [2025-03-29 18:07:12.0555920] [Lua] 100		RightHandMiddle2		
--- [2025-03-29 18:07:12.0556186] [Lua] 101		RightHandMiddle3		
--- [2025-03-29 18:07:12.0556447] [Lua] 102		RightHandMiddle4		
--- [2025-03-29 18:07:12.0556720] [Lua] 103		SKT_RightHand		
--- [2025-03-29 18:07:12.0556979] [Lua] 104		RightInHandIndex		
--- [2025-03-29 18:07:12.0557239] [Lua] 105		RightHandIndex1		
--- [2025-03-29 18:07:12.0557501] [Lua] 106		RightHandIndex2		
--- [2025-03-29 18:07:12.0557762] [Lua] 107		RightHandIndex3		
--- [2025-03-29 18:07:12.0558038] [Lua] 108		RightHandIndex4		
--- [2025-03-29 18:07:12.0558303] [Lua] 109		RightInHandPinky		
--- [2025-03-29 18:07:12.0558733] [Lua] 110		RightHandPinky1		
--- [2025-03-29 18:07:12.0559030] [Lua] 111		RightHandPinky2		
--- [2025-03-29 18:07:12.0559298] [Lua] 112		RightHandPinky3		
--- [2025-03-29 18:07:12.0559578] [Lua] 113		RightHandPinky4		
--- [2025-03-29 18:07:12.0559860] [Lua] 114		RightInHandRing		
--- [2025-03-29 18:07:12.0560129] [Lua] 115		RightHandRing1		
--- [2025-03-29 18:07:12.0560408] [Lua] 116		RightHandRing2		
--- [2025-03-29 18:07:12.0560734] [Lua] 117		RightHandRing3		
--- [2025-03-29 18:07:12.0561136] [Lua] 118		RightHandRing4		
--- [2025-03-29 18:07:12.0561415] [Lua] 119		RightForeArmTwist3		
--- [2025-03-29 18:07:12.0561683] [Lua] 120		RightForeArmTwist2		
--- [2025-03-29 18:07:12.0561961] [Lua] 121		RightForeArmTwist1		
--- [2025-03-29 18:07:12.0562660] [Lua] 122		RightArmTwist2		
--- [2025-03-29 18:07:12.0562938] [Lua] 123		LeftUpLeg		
--- [2025-03-29 18:07:12.0563213] [Lua] 124		LeftLeg		
--- [2025-03-29 18:07:12.0563485] [Lua] 125		LeftLegTwist1		
--- [2025-03-29 18:07:12.0563762] [Lua] 126		LeftFoot		
--- [2025-03-29 18:07:12.0564032] [Lua] 127		LeftToeBase		
--- [2025-03-29 18:07:12.0564296] [Lua] 128		LeftToeBaseEnd		
--- [2025-03-29 18:07:12.0564558] [Lua] 129		LeftUpLegTwist1		
--- [2025-03-29 18:07:12.0564820] [Lua] 130		LeftUpLegTwist2		
--- [2025-03-29 18:07:12.0565122] [Lua] 131		SKT_Hips		
--- [2025-03-29 18:07:12.0565376] [Lua] 132		IK_Hips		
--- [2025-03-29 18:07:12.0565645] [Lua] 133		IK_LeftFoot		
--- [2025-03-29 18:07:12.0565917] [Lua] 134		IK_RightFoot		
--- [2025-03-29 18:07:12.0566384] [Lua] 135		IK_Head		
--- [2025-03-29 18:07:12.0566938] [Lua] 136		SKT_World1		
--- [2025-03-29 18:07:12.0567474] [Lua] 137		SKT_World2		
--- [2025-03-29 18:07:12.0568023] [Lua] 138		SKT_BroomCollision		
--- [2025-03-29 18:07:12.0568539] [Lua] 139		SKT_BeastCollision		
--- [2025-03-29 18:07:12.0569394] [Lua] 140		VB Head_IK_Head		
--- [2025-03-29 18:07:12.0569726] [Lua] 141		VB Spine3_IK_Spine3		
--- [2025-03-29 18:07:12.0570005] [Lua] 142		VB RightHand_IK_RightHand		
--- [2025-03-29 18:07:12.0570274] [Lua] 143		VB LeftHand_IK_LeftHand		
--- [2025-03-29 18:07:12.0570528] [Lua] 144		VB Hips_IK_Hips		
--- [2025-03-29 18:07:12.0570803] [Lua] 145		VB RightFoot_IK_RightFoot		
--- [2025-03-29 18:07:12.0571069] [Lua] 146		VB LeftFoot_IK_LeftFoot		
--- [2025-03-29 18:07:12.0571331] [Lua] 147		None		
+
+
+-- *** Property dump for object 'StaticMesh /Engine/BasicShapes/Cube.Cube ***
+
+-- (Class /Script/Engine.StaticMesh)
+-- StructProperty MinLOD=
+	-- IntProperty Default=0
+-- IntProperty ShadowMinLOD=-1
+-- BoolProperty bCastShadowAsBackfacedMinLOD=false
+-- FloatProperty LpvBiasMultiplier=1.0
+-- ArrayProperty StaticMaterials=nil
+-- FloatProperty LightmapUVDensity=356.39279174805
+-- IntProperty LightMapResolution=64
+-- IntProperty LightMapCoordinateIndex=1
+-- FloatProperty DistanceFieldSelfShadowBias=0.0
+-- ObjectProperty BodySetup=(BodySetup /Engine/BasicShapes/Cube.Cube.BodySetup_1)
+-- IntProperty LODForCollision=0
+-- BoolProperty bGenerateMeshDistanceField=false
+-- BoolProperty bStripComplexCollisionForConsole=false
+-- BoolProperty bHasNavigationData=true
+-- BoolProperty bSupportUniformlyDistributedSampling=false
+-- BoolProperty bSupportPhysicalMaterialMasks=false
+-- BoolProperty bSupportRayTracing=true
+-- BoolProperty bIsBuiltAtRuntime=false
+-- BoolProperty bAllowCPUAccess=false
+-- BoolProperty bSupportGpuUniformlyDistributedSampling=false
+-- ArrayProperty Sockets=nil
+-- StructProperty PositiveBoundsExtension=<0.0, 0.0, 0.0>
+-- StructProperty NegativeBoundsExtension=<0.0, 0.0, 0.0>
+-- StructProperty ExtendedBounds=
+	-- StructProperty Origin=<0.0, 0.0, 0.0>
+	-- StructProperty BoxExtent=<50.0, 50.0, 50.0>
+	-- FloatProperty SphereRadius=86.6025390625
+-- IntProperty ElementToIgnoreForTexFactor=-1
+-- ArrayProperty AssetUserData=nil
+-- ObjectProperty EditableMesh=nil
+-- ObjectProperty NavCollision=(NavCollision /Engine/BasicShapes/Cube.Cube.NavCollision_1)
+
+-- (Class /Script/Engine.StreamableRenderAsset)
+-- DoubleProperty ForceMipLevelsToBeResidentTimestamp=UNHANDLED_VALUE
+-- IntProperty NumCinematicMipLevels=0
+-- IntProperty StreamingIndex=-1
+-- IntProperty CachedCombinedLODBias=0
+-- BoolProperty NeverStream=false
+-- BoolProperty bGlobalForceMipLevelsToBeResident=false
+-- BoolProperty bHasStreamingUpdatePending=false
+-- BoolProperty bForceMiplevelsToBeResident=false
+-- BoolProperty bIgnoreStreamingMipBias=false
+-- BoolProperty bUseCinematicMipLevels=false
+
+-- (Class /Script/CoreUObject.Object)
