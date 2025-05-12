@@ -29,7 +29,7 @@ spellNameToGlyphMap = {
 	Spell_PewPew = "DOWNRIGHT",
 	ITEM_CreatureFeed = "DOWNLEFT",
 	Item_CreaturePettingBrush = "UPLEFT",
---	ITEM_CaptureDevice = "C",
+	ITEM_CaptureDevice = "C",
 	item_GraphornMount = "STEPDOWN",
 	item_HippogriffMount = "STEPUPLEFT"
 }

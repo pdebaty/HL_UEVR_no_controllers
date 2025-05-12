@@ -20,6 +20,17 @@ local controllerWandRotationOffset = {Pitch=-80, Yaw=0, Roll=0}
 local socketWandPositionOffset = {X=-2.0, Y=0, Z=3.390}
 local socketWandRotationOffset = {Pitch=80, Yaw=0, Roll=0}
 
+local currentLogLevel = LogLevel.Error
+function M.setLogLevel(val)
+	currentLogLevel = val
+end
+function M.print(text, logLevel)
+	if logLevel == nil then logLevel = LogLevel.Debug end
+	if logLevel <= currentLogLevel then
+		uevrUtils.print("[wand] " .. text, logLevel)
+	end
+end
+
 function M.isVisible()
 	return bIsVisible
 end
@@ -34,10 +45,10 @@ function M.reset()
 end
 
 function detachFromThirdPerson()
-	uevrUtils.print("Detaching wand from player")
+	M.print("Detaching wand from player")
 	meshComponent = nil
 	if uevrUtils.validate_object(pawn) ~= nil and pawn.GetWand ~= nil then
-		uevrUtils.print("Trying to connect wand for pawn " .. pawn:get_full_name())
+		M.print("Trying to connect wand for pawn " .. pawn:get_full_name())
 		local wand = pawn:GetWand()
 		if wand ~= nil then
 			meshComponent = wand.Mesh -- wand:GetWandMesh()
@@ -48,21 +59,21 @@ function detachFromThirdPerson()
 				meshComponent:SetVisibility(true, true)
 				meshComponent:SetHiddenInGame(false, true)
 			else
-				uevrUtils.print("Mesh is not valid in wand connect")
+				M.print("Mesh is not valid in wand connect")
 				meshComponent = nil
 			end
 		else
-			uevrUtils.print("Wand is not valid in wand connect")
+			M.print("Wand is not valid in wand connect")
 		end
 	else
-		uevrUtils.print("Pawn is not valid in wand connect")
+		M.print("Pawn is not valid in wand connect")
 	end
 	
 	if meshComponent ~= nil then
-		uevrUtils.print("Wand connected")
+		M.print("Wand connected")
 		return true
 	end
-	uevrUtils.print("Wand connect failed")
+	M.print("Wand connect failed")
 	return false
 end
 
@@ -85,9 +96,9 @@ function M.connectToSocket(pawn, handComponent, socketName, offset)
 end
 
 function M.connectAltWand(pawn, hand)
-	uevrUtils.print("connectAltWand called")
+	M.print("connectAltWand called")
 	if uevrUtils.validate_object(pawn) ~= nil and pawn.GetWand ~= nil then
-		uevrUtils.print("Trying to connect wand for pawn " .. pawn:get_full_name() .. " " .. hand)
+		M.print("Trying to connect wand for pawn " .. pawn:get_full_name() .. " " .. hand)
 		local wand = pawn:GetWand()
 		if wand ~= nil then
 			--component is the new SK_Wand
@@ -102,11 +113,11 @@ function M.connectAltWand(pawn, hand)
 			
 			if wand.Mesh ~= nil and UEVR_UObjectHook.exists(wand.Mesh) then
 				component:K2_AttachTo(wand.Mesh, uevrUtils.fname_from_string(""), 0, false)
-				uevrUtils.print("Attached SK_Wand to Mesh " .. wand.Mesh:get_full_name())
+				M.print("Attached SK_Wand to Mesh " .. wand.Mesh:get_full_name())
 			else
 				controllers.attachComponentToController(hand, component)
 				uevrUtils.set_component_relative_transform(component, controllerWandPositionOffset, controllerWandRotationOffset)	
-				uevrUtils.print("Attached SK_Wand to Motion Controller")
+				M.print("Attached SK_Wand to Motion Controller")
 			end
 			
 			local oldWand = wand.SK_Wand
@@ -120,10 +131,10 @@ function M.connectAltWand(pawn, hand)
 				wand:K2_DestroyComponent(oldWand)
 			end)
 			
-			uevrUtils.print("Alt wand component created " .. component:get_full_name())
+			M.print("Alt wand component created " .. component:get_full_name())
 		end
 	end
-	uevrUtils.print("connectAltWand finished")
+	M.print("connectAltWand finished")
 end
 
 function M.disconnect()
@@ -138,9 +149,9 @@ function M.disconnect()
 			wandMeshParent = nil
 			wandMeshAttachSocketName = nil
 		end)
-		uevrUtils.print("Reattached wand to parent")
+		M.print("Reattached wand to parent")
 	else
-		uevrUtils.print("Couldnt reattach wand to parent")
+		M.print("Couldnt reattach wand to parent")
 	end
 end
 
@@ -307,9 +318,9 @@ local function updateCallback(name)
 			local success, response = pcall(function()		
 				onWandVisibilityChange(bIsVisible)
 			end)
-			if success == false then
-				uevrUtils.print("[updateCallback] " .. response, LogLevel.Error)
-			end
+			-- if success == false then
+				-- M.print("[updateCallback] " .. response, LogLevel.Error)
+			-- end
 		end
 		previousIsVisible = bIsVisible
 	end
@@ -319,7 +330,7 @@ local function updateCallback(name)
 				-- return funcCallbacks[name](bIsVisible)
 			-- end)
 			-- if success == false then
-				-- uevrUtils.print("[updateCallback] " .. response, LogLevel.Error)
+				-- M.print("[updateCallback] " .. response, LogLevel.Error)
 			-- else
 				-- previousIsVisible = bIsVisible
 			-- end		

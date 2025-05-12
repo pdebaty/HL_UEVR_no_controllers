@@ -55,9 +55,10 @@ handPositions["left_grip"]["off"]["LeftHandPinky3"] = {1.3660377589986e-05, -6.2
 
 handPositions["left_thumb"] = {}
 handPositions["left_thumb"]["on"] = {}
-handPositions["left_thumb"]["on"]["LeftHandThumb1"] = {-18.061096191406, -67.740882873535, 74.936294555664}
-handPositions["left_thumb"]["on"]["LeftHandThumb2"] = {34.120964050293, -5.4052276611328, 52.789783477783}
-handPositions["left_thumb"]["on"]["LeftHandThumb3"] = {-1.3660377589986e-05, -44.276165008545, -2.9297607397893e-05}
+handPositions["left_thumb"]["on"]["LeftHandThumb1"] = {-38.062198638916, -52.74097442627, 59.935657501221}
+handPositions["left_thumb"]["on"]["LeftHandThumb2"] = {34.1208152771, -60.405132293701, 52.789402008057}
+handPositions["left_thumb"]["on"]["LeftHandThumb3"] = {-8.1962265539914e-05, -24.275983810425, 1.0320855835744e-05}
+
 handPositions["left_thumb"]["off"] = {}
 handPositions["left_thumb"]["off"]["LeftHandThumb1"] = {-38.062210083008, -52.740978240967, 59.935794830322}
 handPositions["left_thumb"]["off"]["LeftHandThumb2"] = {34.121040344238, -5.4049296379089, 52.790008544922}

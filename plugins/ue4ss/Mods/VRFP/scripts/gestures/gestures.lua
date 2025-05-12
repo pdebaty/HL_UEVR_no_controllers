@@ -181,6 +181,29 @@ local function castSpellByName(pawn, spellName)
 						if lookupName == toolName then
 							print("Found tool lookup name for",toolRecord:get_full_name(), toolRecord:IsLoaded(),"\n")
 							--toolRecord:IsLoaded() is false when tool wont activate. How to load tool record? AsyncLoadToolByName doesnt seem to work
+							if toolRecord:IsLoaded() == false then 
+								local name = ""
+								if string.find(toolRecord:get_full_name(), "CreatureFeedToolRecord") then
+									name = "BlueprintGeneratedClass /Game/Gameplay/ToolSet/Items/InventoryItems/CreatureFeed/BP_FeedTool_CreatureFeed.BP_FeedTool_CreatureFeed_C"
+								elseif string.find(toolRecord:get_full_name(), "CreaturePettingBrushToolRecord") then
+									name = "BlueprintGeneratedClass /Game/Gameplay/Nurturing/Creatures/Blueprints/Petting/BP_CreaturePettingTool.BP_CreaturePettingTool_C"
+								elseif string.find(toolRecord:get_full_name(), "CaptureDeviceToolRecord") then
+									name = "BlueprintGeneratedClass /Game/Gameplay/Nurturing/Creatures/Blueprints/CreatureCapture/CaptureDevice/BP_Capture_Device_New.BP_Capture_Device_New_C"
+								elseif string.find(toolRecord:get_full_name(), "HippogriffMountToolRecord") then
+									--This code works but lib:CanUseHippogriff() returns true even when youre too low a level so for now going
+									--to stick with if default way to summon is used one then can use gestures after
+									-- local lib = uevrUtils.find_first_instance("Class /Script/Phoenix.UIBlueprintFunctionLibrary", true)
+									-- if lib ~= nil and lib:CanUseHippogriff() then
+										-- name = "BlueprintGeneratedClass /Game/Gameplay/Nurturing/Creatures/Blueprints/Mounts/BP_HippogriffMountTool.BP_HippogriffMountTool_C"
+									-- else
+										-- uevrUtils.print("Can't use Hippogriff yet")
+									-- end
+								end
+								
+								if name ~= "" then
+									local tool = uevrUtils.getLoadedAsset(name)
+								end
+							end
 							found = true
 							local isUnlocked = inventoryToolSet:IsToolUsageAllowed(toolRecord) 
 							if isUnlocked then

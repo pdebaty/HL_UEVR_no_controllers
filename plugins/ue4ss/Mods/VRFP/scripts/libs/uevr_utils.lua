@@ -532,11 +532,16 @@ function M.initUEVR(UEVR)
 	end)
 
 	uevr.sdk.callbacks.on_post_calculate_stereo_view_offset(function(device, view_index, world_to_meters, position, rotation, is_double)
-		if on_post_calculate_stereo_view_offset ~= nil then
-			on_post_calculate_stereo_view_offset(device, view_index, world_to_meters, position, rotation, is_double)
-		end
-		
-		executeUEVRCallbacks("postCalculateStereoView")
+		local success, response = pcall(function()		
+			if on_post_calculate_stereo_view_offset ~= nil then
+				on_post_calculate_stereo_view_offset(device, view_index, world_to_meters, position, rotation, is_double)
+			end
+			
+			executeUEVRCallbacks("postCalculateStereoView")
+		end)
+		-- if success == false then
+			-- uevrUtils.print("[on_pre_engine_tick] " .. response, LogLevel.Error)
+		-- end
 	end)
 
 	uevr.sdk.callbacks.on_pre_engine_tick(function(engine, delta)
