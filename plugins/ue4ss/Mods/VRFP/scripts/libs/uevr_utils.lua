@@ -491,7 +491,7 @@ function M.initUEVR(UEVR)
 
 	uevr = UEVR
 	local params = uevr.params
-	print("UEVR loaded " .. tostring(params.version.major) .. "." .. tostring(params.version.minor) .. "." .. tostring(params.version.patch))
+	M.print("UEVR loaded " .. tostring(params.version.major) .. "." .. tostring(params.version.minor) .. "." .. tostring(params.version.patch))
 	
 	pawn = uevr.api:get_local_pawn(0)
 
