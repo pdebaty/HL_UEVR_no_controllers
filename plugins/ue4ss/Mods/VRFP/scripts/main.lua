@@ -2,6 +2,7 @@ local UEHelpers = require("UEHelpers")
 local Json = require("jsonStorage")
 require("config/config")
 require("config/config_hands")
+
 local uevrUtils = require("libs/uevr_utils")
 local debugModule = require("libs/uevr_debug")
 local controllers = require("libs/controllers")
@@ -13,6 +14,7 @@ local decoupledYaw = require("helpers/decoupledyaw")
 local input = require("helpers/input")
 local gesturesModule = require("gestures/gestures")
 local animation = require("libs/animation")
+require("helpers/crosshair")
 -- animation.setLogLevel(LogLevel.Debug)
 -- hands.setLogLevel(LogLevel.Debug)
 uevrUtils.setLogLevel(LogLevel.Debug)
@@ -30,6 +32,7 @@ end)
 local isInCinematic = false
 local isInAlohomora = true
 local isFP = true
+local isUsingControllers = false
 local isInMenu = false
 local enableVRCameraOffset = true
 
@@ -67,7 +70,7 @@ local configui = nil
 local version = "1.07"
 
 function UEVRReady(instance)
-	print("### VRFP version " .. version .. " ###\n")
+	print("\n### VRFP version " .. version .. " ###\n")
 	print("UEVR is now ready\n")
 
 	uevr.params.vr.recenter_view()
@@ -589,8 +592,13 @@ function on_lazy_poll()
 	preGameStateCheck()
 	mediaPlayerCheck()
 	handednessCheck()
+	local oldIsUsingControllers = isUsingControllers
+	isUsingControllers = uevr.params.vr.is_using_controllers()
+	if oldIsUsingControllers ~= isUsingControllers then
+		print("Is using controllers",isUsingControllers,"\n")
+	end
 	
-	if showHands then
+	if showHands and isUsingControllers then
 		if not hands.exists() then
 			--hands.create(pawn)
 			createHands()
@@ -599,11 +607,11 @@ function on_lazy_poll()
 		end
 	end
 
-	if not wand.isConnected() then
+	if not wand.isConnected() and isUsingControllers then
 		connectWand()
 	end
 	
-	if manualHideWand then
+	if manualHideWand and isUsingControllers then
 		wand.updateVisibility(mounts.getMountPawn(pawn), g_isPregame or isInMenu or isInCinematic or not mounts.isWalking() )
 	end
 	
@@ -636,6 +644,39 @@ function on_level_change(level)
 	initLevel()
 end
 
+function getHmdTargetLocationAndDirection(useLineTrace)
+	local hmdTargetLocation = nil
+	local hmdPosition = nil
+	local hmdDirection = nil
+	local pawnLocation = pawn.RootComponent:K2_GetComponentLocation()
+	
+    if pawnLocation and lastHMDDirection then
+		hmdPosition = {
+			X= pawnLocation.X + playerOffset.X,
+			Y= pawnLocation.Y + playerOffset.Y,
+			Z= pawnLocation.Z + playerOffset.Z
+		}
+		hmdDirection = { X=lastHMDDirection.X, Y=lastHMDDirection.Y, Z=lastHMDDirection.Z }
+		hmdTargetLocation = {
+			X = hmdPosition.X + (lastHMDDirection.X * 8192.0),
+			Y = hmdPosition.Y + (lastHMDDirection.Y * 8192.0),
+			Z = hmdPosition.Z + (lastHMDDirection.Z * 8192.0)
+		}
+	end
+	-- print("HMD Target Location", hmdTargetLocation.X, hmdTargetLocation.Y, hmdTargetLocation.Z, "\n")
+	if useLineTrace then
+		local ignore_actors = {}
+		local world = getWorld()
+		if world ~= nil then
+			local hit = kismet_system_library:LineTraceSingle(world, pawnLocation, hmdTargetLocation, 0, true, ignore_actors, 0, reusable_hit_result, true, zero_color, zero_color, 1.0)
+			if hit and reusable_hit_result.Distance > 10 then
+				hmdTargetLocation = {X=reusable_hit_result.Location.X, Y=reusable_hit_result.Location.Y, Z=reusable_hit_result.Location.Z}
+			end
+		end
+	end
+	return hmdTargetLocation, hmdDirection, hmdPosition
+end
+
 function on_pre_engine_tick(engine, delta)
 	local newLocomotionMode = mounts.updateMountLocomotionMode(pawn, locomotionMode)
 	if newLocomotionMode ~= nil then 
@@ -643,8 +684,11 @@ function on_pre_engine_tick(engine, delta)
 	end
 	
 	isInMenu = inMenuMode()
-		
-	lastWandTargetLocation, lastWandTargetDirection, lastWandPosition = wand.getWandTargetLocationAndDirection(useCrossHair and not g_isPregame)
+	if isUsingControllers then
+		lastWandTargetLocation, lastWandTargetDirection, lastWandPosition = wand.getWandTargetLocationAndDirection(useCrossHair and not g_isPregame)
+	else
+		lastWandTargetLocation, lastWandTargetDirection, lastWandPosition = getHmdTargetLocationAndDirection(useCrossHair and not g_isPregame)
+	end
 
 	if isFP and not isInCinematic and uevrUtils.validate_object(pawn) ~= nil then			
 		if gestureMode == 1 and (not (g_isPregame or isInMenu or isInCinematic or not mounts.isWalking())) then
@@ -655,7 +699,7 @@ function on_pre_engine_tick(engine, delta)
 		if not isDecoupledYawDisabled then
 			alphaDiff = decoupledYaw.handleDecoupledYaw(pawn, alphaDiff, lastWandTargetDirection, lastHMDDirection, locomotionMode)
 		end
-		
+
 		local mountPawn = mounts.getMountPawn(pawn)
 		if uevrUtils.validate_object(mountPawn) ~= nil and uevrUtils.validate_object(mountPawn.Mesh) ~= nil and mountPawn.Mesh.bVisible == true then 
 			--print("Hiding mesh from tick\n")
@@ -844,7 +888,8 @@ RegisterHook("/Script/Phoenix.Biped_Character:GetTargetDestination", function(se
 		if target ~= nil then
 			return target 
 		end
-		return {X=0,Y=0,Z=0}
+		-- print("GetTargetDestination: target is nil\n")
+		-- return {X=0,Y=0,Z=0}
 	end
 end)
 
@@ -1070,11 +1115,29 @@ end)
 
 RegisterKeyBind(Key.F1, function()
     print("F1 pressed. First Person mode = ",not isFP,"\n")
-	
+	print("isUsingControllers = ",isUsingControllers,"\n")
     isFP = not isFP
 	updatePlayer()
 	if isFP then
-		connectWand()
+		if isUsingControllers then
+			connectWand()
+		end
+		setLocomotionMode(locomotionMode)
+	else
+		wand.disconnect()
+		disableDecoupledYaw(true)
+	end
+end)
+
+RegisterKeyBind(Key.NUM_ONE, function()
+    print("NUM_ONE pressed. First Person mode = ",not isFP,"\n")
+	print("isUsingControllers = ",isUsingControllers,"\n")
+    isFP = not isFP
+	updatePlayer()
+	if isFP then
+		if isUsingControllers then
+			connectWand()
+		end
 		setLocomotionMode(locomotionMode)
 	else
 		wand.disconnect()
@@ -1085,11 +1148,11 @@ end)
 local inNativeMode = true
 RegisterKeyBind(Key.F2, function()
     print("F2 pressed\n")
-	ExecuteInGameThread( function()
-		--connectCube(0)
-		uevrUtils.print(animation.getRootBoneOfBone(hands.getHandComponent(1), "RightForeArm"):to_string())
-		animation.getHierarchyForBone(hands.getHandComponent(1), "RightForeArm")
-	end)
+	-- ExecuteInGameThread( function()
+		-- --connectCube(0)
+		-- uevrUtils.print(animation.getRootBoneOfBone(hands.getHandComponent(1), "RightForeArm"):to_string())
+		-- animation.getHierarchyForBone(hands.getHandComponent(1), "RightForeArm")
+	-- end)
 
 	-- ExecuteInGameThread( function()
 		-- hands.changeGloveMaterials()
@@ -1133,16 +1196,16 @@ RegisterKeyBind(Key.F2, function()
 		-- DevMenu:DevMenuButton()
 	-- end
 
-	-- inNativeMode = not inNativeMode
-	-- if inNativeMode then
-		-- uevr.params.vr.set_mod_value("VR_GhostingFix","false")
-		-- uevr.params.vr.set_mod_value("VR_NativeStereoFix","true")
-		-- uevr.params.vr.set_mod_value("VR_RenderingMethod","0")
-	-- else
-		-- uevr.params.vr.set_mod_value("VR_GhostingFix","true")
-		-- uevr.params.vr.set_mod_value("VR_NativeStereoFix","false")
-		-- uevr.params.vr.set_mod_value("VR_RenderingMethod","1")
-	-- end
+	inNativeMode = not inNativeMode
+	if inNativeMode then
+		uevr.params.vr.set_mod_value("VR_GhostingFix","false")
+		uevr.params.vr.set_mod_value("VR_NativeStereoFix","true")
+		uevr.params.vr.set_mod_value("VR_RenderingMethod","0")
+	else
+		uevr.params.vr.set_mod_value("VR_GhostingFix","true")
+		uevr.params.vr.set_mod_value("VR_NativeStereoFix","false")
+		uevr.params.vr.set_mod_value("VR_RenderingMethod","1")
+	end
 
 end)
 local boneIndex = 1
@@ -1196,7 +1259,7 @@ RegisterKeyBind(Key.F7, function()
 end)
 
 RegisterKeyBind(Key.F8, function()
-    print("F8 pressed\n")
+    print("F8 pressed with a twist\n")
 	useCrossHair = not useCrossHair
 	if useCrossHair then
 		createCrosshair()
