@@ -758,6 +758,26 @@ function on_xinput_get_state(retval, user_index, state)
 
 end
 
+-- Hook for /Script/Engine.PlayerController::InputAxis
+local function on_input_axis(original_func, controller, axis_name, axis_value, delta, delta_time)
+    -- Call the original function to preserve default behavior
+    original_func(controller, axis_name, axis_value, delta, delta_time)
+
+    -- Check if we are using vr controllers or if nothing has changed
+    if isUsingControllers or delta = 0 then
+        return
+    end
+	print("Input Axis", controller, axis_name, axis_value, "\n")
+    
+	-- Handle right thumbstick axes
+    if axis_name == "Gamepad_RightX" then
+        decoupledYawCurrentRot = calculateDecoupledYaw(axis_value, decoupledYawCurrentRot)
+    end
+end
+
+-- Register the InputAxis hook
+UEVR.register_hook("/Script/Engine.PlayerController:InputAxis", on_input_axis)
+
 -- only do this once 
 local g_isLateHooked = false
 function hookLateFunctions()

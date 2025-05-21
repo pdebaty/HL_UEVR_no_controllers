@@ -98,6 +98,40 @@ function doRightHandRemap(state)
 
 end
 
+function calculateDecoupledYaw(ThumbRX, decoupledYawCurrentRot)
+	if useSnapTurn then
+		if ThumbRX > snapTurnDeadZone and RXState == 0 then
+			decoupledYawCurrentRot = decoupledYawCurrentRot + snapAngle
+			RXState = 1
+		elseif ThumbRX < -snapTurnDeadZone and RXState == 0 then
+			decoupledYawCurrentRot = decoupledYawCurrentRot - snapAngle
+			RXState = 1
+		elseif ThumbRX <= snapTurnDeadZone and ThumbRX >= -snapTurnDeadZone then
+			RXState = 0
+		end
+	else 
+		local smoothTurnRate = snapAngle / 90
+		local rate = ThumbRX/32767
+		rate = rate*rate*rate*rate
+		if ThumbRX > 2200 then
+			decoupledYawCurrentRot = decoupledYawCurrentRot + (rate * smoothTurnRate)
+		end
+		if ThumbRX < -2200 then
+			decoupledYawCurrentRot = decoupledYawCurrentRot - (rate * smoothTurnRate)
+		end
+	end	
+
+	--keep the decoupled yaw in the range of -180 to 180
+	if decoupledYawCurrentRot > 180 then
+		decoupledYawCurrentRot = -360 + decoupledYawCurrentRot
+	end
+	if decoupledYawCurrentRot < -180 then
+		decoupledYawCurrentRot = 360 + decoupledYawCurrentRot
+	end
+
+	return decoupledYawCurrentRot
+end
+
 function M.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, locomotionMode, controlMode, isLeftHanded, snapAngle, useSnapTurn, AlphaDiff, isInMenu)
 	--disable decoupled yaw during grip press
 	local gripButton = XINPUT_GAMEPAD_LEFT_SHOULDER
@@ -159,36 +193,32 @@ function M.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, lo
 			end
 		end
 		
-		if useSnapTurn then
-			if ThumbRX > snapTurnDeadZone and RXState == 0 then
-				decoupledYawCurrentRot=decoupledYawCurrentRot + snapAngle
-				RXState=1
-			elseif ThumbRX < -snapTurnDeadZone and RXState == 0 then
-				decoupledYawCurrentRot=decoupledYawCurrentRot - snapAngle
-				RXState=1
-			elseif ThumbRX <= snapTurnDeadZone and ThumbRX >=-snapTurnDeadZone then
-				RXState=0
+		if not isDecoupledYawDisabled and not overrideDecoupledYaw then
+			--Read Gamepad stick input for rotation compensation
+			local ThumbLX = state.Gamepad.sThumbLX
+			local ThumbLY = state.Gamepad.sThumbLY
+			local ThumbRX = state.Gamepad.sThumbRX
+			local ThumbRY = state.Gamepad.sThumbRY
+	
+			if isLeftHanded then
+				ThumbLX = state.Gamepad.sThumbRX
+				ThumbLY = state.Gamepad.sThumbRY
+				ThumbRX = state.Gamepad.sThumbLX
+				ThumbRY = state.Gamepad.sThumbLY
 			end
-		else 
-			local smoothTurnRate = snapAngle / 90
-			local rate = ThumbRX/32767
-			rate =  rate*rate*rate*rate
-			if ThumbRX > 2200 then
-				decoupledYawCurrentRot = decoupledYawCurrentRot + (rate * smoothTurnRate)
+	
+			if locomotionMode == 1 then 
+				if isLeftHanded then
+					state.Gamepad.sThumbRX= ThumbLX*math.cos(-AlphaDiff)- ThumbLY*math.sin(-AlphaDiff)			
+					state.Gamepad.sThumbRY= math.sin(-AlphaDiff)*ThumbLX + ThumbLY*math.cos(-AlphaDiff)
+				else
+					state.Gamepad.sThumbLX= ThumbLX*math.cos(-AlphaDiff)- ThumbLY*math.sin(-AlphaDiff)			
+					state.Gamepad.sThumbLY= math.sin(-AlphaDiff)*ThumbLX + ThumbLY*math.cos(-AlphaDiff)
+				end
 			end
-			if ThumbRX < -2200 then
-				decoupledYawCurrentRot = decoupledYawCurrentRot - (rate * smoothTurnRate)
-			end
-		end	
-		
-		--keep the decoupled yaw in the range of -180 to 180
-		if decoupledYawCurrentRot > 180 then
-			decoupledYawCurrentRot = -360 + decoupledYawCurrentRot
+	
+			decoupledYawCurrentRot = calculateDecoupledYaw(ThumbRX, decoupledYawCurrentRot)
 		end
-		if decoupledYawCurrentRot < -180 then
-			decoupledYawCurrentRot = 360 + decoupledYawCurrentRot
-		end
-	end
 	return decoupledYawCurrentRot
 end
 
