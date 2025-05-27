@@ -47,6 +47,8 @@ local lastHMDDirection = nil
 local lastHMDPosition = nil
 local lastHMDRotation = nil
 
+local playerCameraManager = nil
+
 local lastWandTargetLocation = nil
 local lastWandTargetDirection = nil
 local lastWandPosition = nil
@@ -150,6 +152,9 @@ function initLevel()
 	--connectCube(0)
 	
 	flickerFixer.create()
+	if uevrUtils.validate_object(playerCameraManager) == nil then
+		playerCameraManager = uevrUtils.find_first_of("Class /Script/Engine.PlayerCameraManager")
+	end
 end
 
 function loadSettings()
@@ -637,6 +642,14 @@ function on_lazy_poll()
 		-- wand.updateOffsetPosition(handPosition)
 	-- end
 
+	if isFP and isDecoupledYawDisabled and not isInCinematic and not isUsingControllers and uevrUtils.validate_object(pawn) ~= nil and lastWandTargetDirection ~= nil and uevrUtils.validate_object(playerCameraManager) ~= nil then
+		local currentRotation = playerCameraManager:GetCameraRotation()
+		currentRotation.Pitch = math.atan(lastWandTargetDirection.Z/math.sqrt(lastWandTargetDirection.X^2+lastWandTargetDirection.Y^2))*180/math.pi
+		pawn:SetPhoenixCameraRotation(currentRotation)
+		-- local currentDir = pawn:CalculateLookAtDirection()
+		-- currentDir.Z = lastWandTargetDirection.Z
+		-- pawn:SetPhoenixCameraLookAt(lastWandTargetDirection, delay)
+	end
 end
 
 function on_level_change(level)
@@ -757,26 +770,6 @@ function on_xinput_get_state(retval, user_index, state)
 	-- end
 
 end
-
--- Hook for /Script/Engine.PlayerController::InputAxis
-local function on_input_axis(original_func, controller, axis_name, axis_value, delta, delta_time)
-    -- Call the original function to preserve default behavior
-    original_func(controller, axis_name, axis_value, delta, delta_time)
-
-    -- Check if we are using vr controllers or if nothing has changed
-    if isUsingControllers or delta = 0 then
-        return
-    end
-	print("Input Axis", controller, axis_name, axis_value, "\n")
-    
-	-- Handle right thumbstick axes
-    if axis_name == "Gamepad_RightX" then
-        decoupledYawCurrentRot = calculateDecoupledYaw(axis_value, decoupledYawCurrentRot)
-    end
-end
-
--- Register the InputAxis hook
-UEVR.register_hook("/Script/Engine.PlayerController:InputAxis", on_input_axis)
 
 -- only do this once 
 local g_isLateHooked = false

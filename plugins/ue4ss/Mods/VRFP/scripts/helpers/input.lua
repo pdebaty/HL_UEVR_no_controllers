@@ -219,6 +219,7 @@ function M.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, lo
 	
 			decoupledYawCurrentRot = calculateDecoupledYaw(ThumbRX, decoupledYawCurrentRot)
 		end
+	end
 	return decoupledYawCurrentRot
 end
 
