@@ -33,6 +33,7 @@ local isInCinematic = false
 local isInAlohomora = true
 local isFP = true
 local isUsingControllers = false
+local isXInputDetected = false
 local isInMenu = false
 local enableVRCameraOffset = true
 
@@ -606,6 +607,7 @@ function on_lazy_poll()
     if oldIsUsingControllers ~= isUsingControllers then
         print("Is using controllers",isUsingControllers,"\n")
     end
+    if isUsingControllers then snapAngle = 30 else snapAngle = 90 end
     
     if showHands and isUsingControllers then
         if not hands.exists() then
@@ -646,7 +648,7 @@ function on_lazy_poll()
         -- wand.updateOffsetPosition(handPosition)
     -- end
 
-    if isFP and isDecoupledYawDisabled and not isInCinematic and not isUsingControllers and uevrUtils.validate_object(pawn) ~= nil and lastWandTargetDirection ~= nil and uevrUtils.validate_object(playerCameraManager) ~= nil then
+    if isFP and not isXInputDetected and not isInCinematic and not isUsingControllers and uevrUtils.validate_object(pawn) ~= nil and lastWandTargetDirection ~= nil and uevrUtils.validate_object(playerCameraManager) ~= nil then
         local currentRotation = playerCameraManager:GetCameraRotation()
         currentRotation.Pitch = math.atan(lastWandTargetDirection.Z/math.sqrt(lastWandTargetDirection.X^2+lastWandTargetDirection.Y^2))*180/math.pi
         pawn:SetPhoenixCameraRotation(currentRotation)
@@ -749,6 +751,7 @@ function on_post_calculate_stereo_view_offset(device, view_index, world_to_meter
 end
     
 function on_xinput_get_state(retval, user_index, state)
+    isXInputDetected = true
     local success, response = pcall(function()		
         if isFP and not isInCinematic then
             local disableStickOverride = g_isPregame or isInMenu or isInCinematic or mounts.isOnBroom() or (gestureMode == 1 and gesturesModule.isCastingSpell(pawn, "Spell_Wingardium"))
@@ -1247,6 +1250,7 @@ local boneIndex = 1
 
 RegisterKeyBind(Key.F3, function()
     print("F3 pressed\n")
+    isXInputDetected = false
     locomotionMode = locomotionMode + 1
     if locomotionMode > 2 then
         locomotionMode = 0
