@@ -49,6 +49,8 @@ local lastHMDRotation = nil
 
 local playerCameraManager = nil
 
+local forceShowPlayer = false
+
 local lastWandTargetLocation = nil
 local lastWandTargetDirection = nil
 local lastWandPosition = nil
@@ -253,6 +255,7 @@ function updatePlayer()
 end
 
 function hidePlayer(state, force)
+    if forceShowPlayer then return end
     if force == nil then force = false end
     --print("hidePlayer:  ", state,pawn,isInCinematic,"\n")
     if (not isInCinematic) or force then	
@@ -286,6 +289,7 @@ function setCameraStackDisabled(cameraStack, state)
 end
 
 function setCharacterInFPSView(val)
+    if forceShowPlayer then return end
     PitchToTransformCurves = FindAllOf("BP_PitchToTransformCurves_Default_C")
     AmbientCamAnim_Idle = FindAllOf("BP_AmbientCamAnim_Idle_C")
     AmbientCamAnim_Jog = FindAllOf("BP_AmbientCamAnim_Jog_C")
@@ -771,6 +775,10 @@ function on_xinput_get_state(retval, user_index, state)
 
 end
 
+function on_xinput_set_state(retval, user_index, state)
+    print("on_xinput_set_state called: ", state.wLeftMotorSpeed, ", ", state.wRightMotorSpeed, "\n")
+end
+
 -- only do this once 
 local g_isLateHooked = false
 function hookLateFunctions()
@@ -915,6 +923,20 @@ end)
 RegisterHook("/Script/Phoenix.Biped_Player:InteractingWithActor", function(self)	
     print("InteractingWithActor\n")
 end)
+
+-- RegisterHook("/Script/Phoenix.Biped_Character:GetFullBodyState", function(self, state)	
+--     print("GetFullBodyState: ", state, "\n")
+-- end)
+
+-- RegisterHook("/Script/Phoenix.Biped_Character:OnDisillusionmentStart__DelegateSignature", function(self)	
+--     print("On Disillusionment Start\n")
+--     playerOffset.Z = playerOffset.Z - 30
+-- end)
+
+-- RegisterHook("/Script/Phoenix.Biped_Character:OnDisillusionmentEnd__DelegateSignature", function(self)	
+--     print("On Disillusionment End\n")
+--     playerOffset.Z = playerOffset.Z + 30
+-- end)
 
 --must have this one for smooth transition for normal field guide displays
 RegisterHook("/Script/Phoenix.UIManager:FieldGuideMenuStart", function(self)	

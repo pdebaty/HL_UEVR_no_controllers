@@ -523,6 +523,14 @@ function M.initUEVR(UEVR)
 		executeUEVRCallbacks("onInputGetState")
 	end)
 
+	uevr.sdk.callbacks.on_xinput_set_state(function(retval, user_index, state)
+		if on_xinput_set_state ~= nil then
+			on_xinput_set_state(retval, user_index, state)
+		end
+		
+		executeUEVRCallbacks("onInputSetState")
+	end)
+
 	uevr.sdk.callbacks.on_pre_calculate_stereo_view_offset(function(device, view_index, world_to_meters, position, rotation, is_double)
 		if on_pre_calculate_stereo_view_offset ~= nil then
 			on_pre_calculate_stereo_view_offset(device, view_index, world_to_meters, position, rotation, is_double)
@@ -596,6 +604,10 @@ end
 
 function M.registerOnInputGetStateCallback(func)
 	registerUEVRCallback("onInputGetState", func)
+end
+
+function M.registerOnInputSetStateCallback(func)
+	registerUEVRCallback("onInputSetState", func)
 end
 
 function M.registerPreEngineTickCallback(func)
