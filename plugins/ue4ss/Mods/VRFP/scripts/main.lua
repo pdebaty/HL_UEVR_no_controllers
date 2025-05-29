@@ -50,7 +50,7 @@ local lastHMDRotation = nil
 
 local playerCameraManager = nil
 
-local forceShowPlayer = false
+local forceShowPlayer = true
 
 local lastWandTargetLocation = nil
 local lastWandTargetDirection = nil
@@ -100,7 +100,7 @@ function UEVRReady(instance)
         --if injected in a game rather than at the loading screen
         updatePlayer()
     end
-    
+
     --this has to be done here. When done with utils callback the function params dont get changed
     local prevRotation = {}
     uevr.params.sdk.callbacks.on_early_calculate_stereo_view_offset(function(device, view_index, world_to_meters, position, rotation, is_double)	
@@ -256,17 +256,31 @@ function updatePlayer()
 end
 
 function hidePlayer(state, force)
-    if forceShowPlayer then return end
     if force == nil then force = false end
     --print("hidePlayer:  ", state,pawn,isInCinematic,"\n")
     if (not isInCinematic) or force then	
         local mountPawn = mounts.getMountPawn(pawn)			
         if uevrUtils.validate_object(mountPawn) ~= nil then
             local characterMesh = mountPawn.Mesh
+            -- print("characterMesh: ", characterMesh:get_full_name(), "\n")
+            local hairMesh = uevrUtils.getChildComponent(characterMesh, "Hair")
+            local bandannaMesh = uevrUtils.getChildComponent(characterMesh, "Bandanna")
+			-- print("hairMesh: ", hairMesh:get_full_name(), "\n")
+            -- print("bandannaMesh: ", bandannaMesh:get_full_name(), "\n")
             if uevrUtils.validate_object(characterMesh) ~= nil and characterMesh.SetVisibility ~= nil then
-                characterMesh:SetVisibility(not state, true)
+                characterMesh:SetHiddenInGame(not state, false)
             else
                 print("hidePlayer: Character mesh not valid\n")
+            end
+            if uevrUtils.validate_object(hairMesh) ~= nil and hairMesh.SetVisibility ~= nil then
+                hairMesh:SetVisibility(not state, false)
+            else
+                print("hidePlayer: Hair mesh not valid\n")
+            end
+            if uevrUtils.validate_object(bandannaMesh) ~= nil and bandannaMesh.SetVisibility ~= nil then
+                bandannaMesh:SetVisibility(not state, false)
+            else
+                print("hidePlayer: Bandanna mesh not valid\n")
             end
         else
             print("hidePlayer: Pawn not valid\n")
@@ -607,7 +621,7 @@ function on_lazy_poll()
     if oldIsUsingControllers ~= isUsingControllers then
         print("Is using controllers",isUsingControllers,"\n")
     end
-    if isUsingControllers then snapAngle = 30 else snapAngle = 90 end
+    if not isUsingControllers then snapAngle = snapAngle * 6 end
     
     if showHands and isUsingControllers then
         if not hands.exists() then
@@ -648,7 +662,7 @@ function on_lazy_poll()
         -- wand.updateOffsetPosition(handPosition)
     -- end
 
-    if isFP and not isXInputDetected and not isInCinematic and not isUsingControllers and uevrUtils.validate_object(pawn) ~= nil and lastWandTargetDirection ~= nil and uevrUtils.validate_object(playerCameraManager) ~= nil then
+    if isFP and isDecoupledYawDisabled and not isInCinematic and not isUsingControllers and uevrUtils.validate_object(pawn) ~= nil and lastWandTargetDirection ~= nil and uevrUtils.validate_object(playerCameraManager) ~= nil then
         local currentRotation = playerCameraManager:GetCameraRotation()
         currentRotation.Pitch = math.atan(lastWandTargetDirection.Z/math.sqrt(lastWandTargetDirection.X^2+lastWandTargetDirection.Y^2))*180/math.pi
         pawn:SetPhoenixCameraRotation(currentRotation)
@@ -757,19 +771,21 @@ function on_xinput_get_state(retval, user_index, state)
             local disableStickOverride = g_isPregame or isInMenu or isInCinematic or mounts.isOnBroom() or (gestureMode == 1 and gesturesModule.isCastingSpell(pawn, "Spell_Wingardium"))
             decoupledYawCurrentRot = input.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, locomotionMode, controlMode, g_isLeftHanded, snapAngle, useSnapTurn, alphaDiff, disableStickOverride)
             
-            if gestureMode == 1 then
-                gesturesModule.handleInput(state, g_isLeftHanded)
+            if isUsingControllers then
+                if gestureMode == 1 then
+                    gesturesModule.handleInput(state, g_isLeftHanded)
+                end
+                
+                if manualHideWand and mounts.isWalking() then
+                    wand.handleInput(pawn, state, g_isLeftHanded)
+                end
+                
+                if showHands then
+                    hands.handleInput(state, wand.isVisible())	
+                end
+                
+                handleBrokenControllers(mounts.getMountPawn(pawn), state, g_isLeftHanded)
             end
-            
-            if manualHideWand and mounts.isWalking() then
-                wand.handleInput(pawn, state, g_isLeftHanded)
-            end
-            
-            if showHands then
-                hands.handleInput(state, wand.isVisible())	
-            end
-            
-            handleBrokenControllers(mounts.getMountPawn(pawn), state, g_isLeftHanded)	
         end
     end)
     -- if success == false then
@@ -908,9 +924,9 @@ end)
 RegisterHook("/Script/Phoenix.Biped_Character:GetTargetDestination", function(self)	
 --print("GetTargetDestination\n")
     if isFP then
-        local target = lastWandTargetLocation 
+        local target = lastWandTargetLocation
         if target ~= nil then
-            return target 
+            return target
         end
         -- print("GetTargetDestination: target is nil\n")
         -- return {X=0,Y=0,Z=0}
@@ -927,8 +943,13 @@ RegisterHook("/Script/Phoenix.Biped_Player:InteractingWithActor", function(self)
     print("InteractingWithActor\n")
 end)
 
+-- local fullBodyState = nil
 -- RegisterHook("/Script/Phoenix.Biped_Character:GetFullBodyState", function(self, state)	
---     print("GetFullBodyState: ", state, "\n")
+--     local stateValue = state:get()
+--     if stateValue ~= fullBodyState then
+--         fullBodyState = stateValue
+--         print("GetFullBodyState changed: ", tostring(stateValue), "\n")
+--     end    
 -- end)
 
 -- RegisterHook("/Script/Phoenix.Biped_Character:OnDisillusionmentStart__DelegateSignature", function(self)	

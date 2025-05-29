@@ -54,7 +54,8 @@ X - Positive values forward, Negative values backward
 Y - Positive values right, Negative values left
 Z - Positive values up, Negative values down
 ]]--
-playerOffset = {X=19, Y=-3, Z=70}
+-- playerOffset = {X=19, Y=-3, Z=70}
+playerOffset = {X=10, Y=-3, Z=65}
 
 --[[
 Broom Mount offset 
