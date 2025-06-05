@@ -31,6 +31,7 @@ end)
 
 local isInCinematic = false
 local isInAlohomora = true
+local isMounted = false
 local isFP = true
 local isUsingControllers = false
 local isXInputDetected = false
@@ -74,6 +75,8 @@ local configui = nil
 
 local version = "1.07"
 
+local backupLocomotionMode = 1
+
 function UEVRReady(instance)
     print("\n### VRFP version " .. version .. " ###\n")
     print("UEVR is now ready\n")
@@ -88,6 +91,7 @@ function UEVRReady(instance)
     preGameStateCheck()
     hookLateFunctions()
     setLocomotionMode(locomotionMode)
+    backupLocomotionMode = locomotionMode
     checkStartPageIntro()
 
     if useCrossHair then
@@ -262,26 +266,38 @@ function hidePlayer(state, force)
         local mountPawn = mounts.getMountPawn(pawn)
         if uevrUtils.validate_object(mountPawn) ~= nil then
             local characterMesh = mountPawn.Mesh
-            -- print("characterMesh: ", characterMesh:get_full_name(), "\n")
-            local hairMesh = uevrUtils.getChildComponent(characterMesh, "Hair")
-            local bandannaMesh = uevrUtils.getChildComponent(characterMesh, "Bandanna")
-			-- print("hairMesh: ", hairMesh:get_full_name(), "\n")
-            -- print("bandannaMesh: ", bandannaMesh:get_full_name(), "\n")
-            if uevrUtils.validate_object(characterMesh) ~= nil and characterMesh.bVisible ~= nil then
-                characterMesh.bVisible = not state
+            if uevrUtils.validate_object(characterMesh) ~= nil and characterMesh.SetCullDistance ~= nil then
+                if state then characterMesh:SetCullDistance(0.0001)
+                else 
+                    characterMesh:SetCullDistance(0) 
+                    characterMesh:SetHiddenInGame(false, true)
+                end
             else
                 print("hidePlayer: Character mesh not valid\n")
             end
-            if uevrUtils.validate_object(hairMesh) ~= nil and hairMesh.bVisible ~= nil then
-                hairMesh.bVisible = not state
-            else
-                print("hidePlayer: Hair mesh not valid\n")
+
+            if state then
+                local children = characterMesh.AttachChildren
+                for i, child in ipairs(children) do
+                    local childName = child:get_full_name()
+                    if string.find(childName, "Hair") or string.find(childName, "Bandanna") or (isUsingControllers and (string.find(childName, "Arms") or string.find(childName, "Wand"))) then
+                        child:SetHiddenInGame(true, false)
+                    end
+                end
             end
-            if uevrUtils.validate_object(bandannaMesh) ~= nil and bandannaMesh.bVisible ~= nil then
-                bandannaMesh.bVisible = not state
-            else
-                print("hidePlayer: Bandanna mesh not valid\n")
-            end
+            -- local hairMesh = uevrUtils.getChildComponent(characterMesh, "Hair")
+            -- local bandannaMesh = uevrUtils.getChildComponent(characterMesh, "Bandanna")
+			
+            -- if uevrUtils.validate_object(hairMesh) ~= nil and hairMesh.SetVisibility ~= nil then
+            --     hairMesh:SetVisibility(not state, true)
+            -- else
+            --     print("hidePlayer: Hair mesh not valid\n")
+            -- end
+            -- if uevrUtils.validate_object(bandannaMesh) ~= nil and bandannaMesh.SetVisibility ~= nil then
+            --     bandannaMesh:SetVisibility(not state, true)
+            -- else
+            --     print("hidePlayer: Bandanna mesh not valid\n")
+            -- end
         else
             print("hidePlayer: Pawn not valid\n")
         end
@@ -393,6 +409,7 @@ end
 
 function setLocomotionMode(mode)
     locomotionMode = mode
+    backupLocomotionMode = mode
     print("Locomotion mode = ",locomotionMode,"\n")
     disableDecoupledYaw(locomotionMode == 0)
 end
@@ -621,7 +638,7 @@ function on_lazy_poll()
     if oldIsUsingControllers ~= isUsingControllers then
         print("Is using controllers",isUsingControllers,"\n")
     end
-    if not isUsingControllers then snapAngle = snapAngle * 6 end
+    if not isUsingControllers then snapAngle = snapAngle * 6 else snapAngle = snapAngle * 3 end
 
     if showHands and isUsingControllers then
         if not hands.exists() then
@@ -669,6 +686,30 @@ function on_lazy_poll()
         -- local currentDir = pawn:CalculateLookAtDirection()
         -- currentDir.Z = lastWandTargetDirection.Z
         -- pawn:SetPhoenixCameraLookAt(lastWandTargetDirection, delay)
+    end
+
+    if isFP and not isInCinematic and uevrUtils.validate_object(pawn) ~= nil then
+        local objectStateInfo = pawn:GetObjectStateInfo()
+        -- isMounted = objectStateInfo:IsMounted()
+        -- if isMounted then
+        --     print("Mounted\n")
+        --     backupLocomotionMode = locomotionMode
+        --     setLocomotionMode(0)
+        -- else
+        --     if locomotionMode ~= backupLocomotionMode then
+        --         setLocomotionMode(backupLocomotionMode)
+        --     end
+        -- end
+        if objectStateInfo:IsDisillusioned() then
+            playerOffset.Z = 35
+        elseif pawn:IsSwimming() then
+            playerOffset.Z = 15
+        else
+            playerOffset.Z = 65
+        end
+        -- local outState = { result = nil } -- Out parameter
+        -- pawn:GetBaseSpeedMode(outState)
+        -- print("Base Speed Mode: ", outState.result, "\n")
     end
 end
 
@@ -796,6 +837,10 @@ end
 
 function on_xinput_set_state(retval, user_index, state)
     print("on_xinput_set_state called: ", state.wLeftMotorSpeed, ", ", state.wRightMotorSpeed, "\n")
+    if isUsingControllers and (state.wLeftMotorSpeed > 0 or state.wRightMotorSpeed > 0) then
+        uevr.params.vr.trigger_haptic_vibration(0, 0.1, 200, 1.0, uevr.params.vr.get_right_joystick_source())
+        uevr.params.vr.trigger_haptic_vibration(0, 0.1, 200, 1.0, uevr.params.vr.get_left_joystick_source())
+    end
 end
 
 -- only do this once 
@@ -859,6 +904,7 @@ function hookLateFunctions()
             isInAlohomora = true
             disableDecoupledYaw(true)
             isInCinematic = true
+            hidePlayer(false, true)
             if manualHideWand then wand.setVisible(pawn, false) end
         end)
 
@@ -867,6 +913,7 @@ function hookLateFunctions()
             isInAlohomora = false
             setLocomotionMode(locomotionMode)
             isInCinematic = false
+            hidePlayer(isFP)
         end)
 
         RegisterHook("/Game/UI/Actor/UI_BP_Astronomy_minigame.UI_BP_Astronomy_minigame_C:ConstellationImageLoaded", function(self)
@@ -951,24 +998,27 @@ end)
 --         print("GetFullBodyState changed: ", tostring(stateValue), "\n")
 --     end    
 -- end)
-local currentSpeed = 0
-RegisterHook("/Script/Phoenix.Biped_Player:GetBaseSpeedMode", function(self, state)	
-	if (currentSpeed ~= state:get()) then
-		currentSpeed = state:get()
-		print("GetBaseSpeedMode\n", currentSpeed, "\n")
-		if currentSpeed > 6 then playerOffset.X = 20 else playerOffset.X = 14 end
-	end
-end)
+-- local currentSpeed = 0
+-- RegisterHook("/Script/Ambulatory.Ambulatory_Character:GetBaseSpeedMode", function(self, state)	
+--     print("GetBaseSpeedMode called for ", self:GetObject():GetFullName(), "\n")
+-- 	if self:GetObject():is_a(uevrUtils.get_class("Class /Script/Phoenix.Biped_Player")) then
+-- 		if (currentSpeed ~= state:get()) then
+-- 			currentSpeed = state:get()
+-- 			print("GetBaseSpeedMode\n", currentSpeed, "\n")
+-- 			if currentSpeed > 6 then playerOffset.X = 20 else playerOffset.X = 14 end
+-- 		end
+-- 	end
+-- end)
 
-RegisterHook("/Script/Phoenix.Biped_Player:K2_OnStartCrouch", function(self, halfHeightAdjust, scaledHalfHeightAdjust)	
-    print("On Crouching Start\n")
-    playerOffset.Z = 65 - scaledHalfHeightAdjust
-end)
+-- RegisterHook("/Script/Phoenix.Biped_Character:OnDisillusionmentStart__DelegateSignature", function(self)	
+--     print("OnDisillusionmentStart__DelegateSignature Called\n")
+--     playerOffset.Z = 35
+-- end)
 
-RegisterHook("/Script/Phoenix.Biped_Player:K2_OnEndCrouch", function(self, halfHeightAdjust, scaledHalfHeightAdjust)	
-    print("On Crouching End\n")
-    playerOffset.Z = 65
-end)
+-- RegisterHook("/Script/Phoenix.Biped_Character:OnDisillusionmentEnd__DelegateSignature", function(self)
+--     print("OnDisillusionmentEnd__DelegateSignature Called\n")
+--     playerOffset.Z = 65
+-- end)
 
 --must have this one for smooth transition for normal field guide displays
 RegisterHook("/Script/Phoenix.UIManager:FieldGuideMenuStart", function(self)

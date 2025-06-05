@@ -1,4 +1,3 @@
-
 local M = {}
 
 local gripOn = false
@@ -133,7 +132,15 @@ function M.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, lo
 			doRightHandRemap(state)
 		end
 	end
-	
+
+	-- Move the camera forward if the left thumbstick is pushed forward
+	-- Sharper S-curve: offset stays near 5 until sThumbLY ~20000, then rapidly increases
+	local ly = state.Gamepad.sThumbLY
+	local sharpness = 0.0004  -- Controls how sharp the transition is
+	local threshold = 20000   -- The value where the curve rapidly increases
+	local sigmoid = 1 / (1 + math.exp(-sharpness * (ly - threshold)))
+	playerOffset.X = math.floor(5 + (sigmoid * 10) + 0.5)
+
 	--calculate decoupled Yaw
 	if not isDecoupledYawDisabled and not overrideDecoupledYaw then
 		--Read Gamepad stick input for rotation compensation
