@@ -91,7 +91,7 @@ function M.updateMountLocomotionMode(pawn, locomotionMode)
 	mountType, isFlying = M.getMountInfo(pawn)
 	if lastMountType ~= mountType then
 		--animal mounts need to use locomotion mode 0
-		if mountType >=2 and mountType <= 5 then 
+		if (useManualLocomotionModeForBroom and mountType == 0) or (mountType >= 2 and mountType <= 5) then 
 			g_walkingLocomotionMode = locomotionMode
 			newLocomotionMode = 0
 			--setLocomotionMode(0)

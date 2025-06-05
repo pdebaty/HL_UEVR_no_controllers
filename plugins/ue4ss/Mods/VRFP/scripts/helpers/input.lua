@@ -8,6 +8,8 @@ local spellDeadZone = 12000
 local snapTurnDeadZone = 8000
 local triggerValue = 100
 
+movementOffset = {X = 0, Y = 0, Z = 0}
+
 local function isButtonPressed(state, button)
 	return state.Gamepad.wButtons & button ~= 0
 end
@@ -97,7 +99,7 @@ function doRightHandRemap(state)
 
 end
 
-function M.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, locomotionMode, controlMode, isLeftHanded, snapAngle, useSnapTurn, AlphaDiff, isInMenu)
+function M.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, locomotionMode, controlMode, isLeftHanded, snapAngle, useSnapTurn, AlphaDiff, isInMenu, isWalking)
 	--disable decoupled yaw during grip press
 	local gripButton = XINPUT_GAMEPAD_LEFT_SHOULDER
 	if isLeftHanded then
@@ -133,13 +135,23 @@ function M.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, lo
 		end
 	end
 
-	-- Move the camera forward if the left thumbstick is pushed forward
+	-- Move the camera forward if the movement thumbstick is pushed forward
 	-- Sharper S-curve: offset stays near 5 until sThumbLY ~20000, then rapidly increases
-	local ly = state.Gamepad.sThumbLY
+	local movementY = isLeftHanded and state.Gamepad.sThumbRY or state.Gamepad.sThumbLY
+
+	if not isWalking then 
+		local throttle = state.Gamepad.bRightTrigger
+		movementY = math.max(throttle, movementY)
+	end
 	local sharpness = 0.0004  -- Controls how sharp the transition is
 	local threshold = 20000   -- The value where the curve rapidly increases
-	local sigmoid = 1 / (1 + math.exp(-sharpness * (ly - threshold)))
-	playerOffset.X = math.floor(5 + (sigmoid * 10) + 0.5)
+	local sigmoid = 1 / (1 + math.exp(-sharpness * (movementY - threshold)))
+
+	local movementOffsetXMax = isWalking and 10 or 20
+	movementOffset.X = math.floor((sigmoid * movementOffsetXMax) + 0.5)
+	if not isWalking then
+		movementOffset.Z = -math.floor((sigmoid * 10) + 0.5)
+	end
 
 	--calculate decoupled Yaw
 	if not isDecoupledYawDisabled and not overrideDecoupledYaw then

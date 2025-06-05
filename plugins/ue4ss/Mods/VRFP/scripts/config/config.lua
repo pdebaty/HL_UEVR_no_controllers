@@ -58,12 +58,29 @@ Z - Positive values up, Negative values down
 playerOffset = {X=5, Y=0, Z=65}
 
 --[[
+Player swimming offset 
+X - Positive values forward, Negative values backward
+Y - Positive values right, Negative values left
+Z - Positive values up, Negative values down
+]]--
+playerSwimmingOffset = {X=5, Y=0, Z=15}
+
+--[[
+Player disillusioned offset 
+X - Positive values forward, Negative values backward
+Y - Positive values right, Negative values left
+Z - Positive values up, Negative values down
+]]--
+playerDisillusionedOffset = {X=5, Y=0, Z=35}
+
+--[[
 Broom Mount offset 
 X - Positive values forward, Negative values backward
 Y - Positive values right, Negative values left
 Z - Positive values up, Negative values down
 ]]--
 broomMountOffset = {X=-15, Y=0, Z=75}
+useManualLocomotionModeForBroom = true
 
 --[[
 Graphorn Mount offset 

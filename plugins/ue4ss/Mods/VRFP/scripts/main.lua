@@ -31,10 +31,10 @@ end)
 
 local isInCinematic = false
 local isInAlohomora = true
-local isMounted = false
+local IsDisillusioned = false
+local isSwimming = false
 local isFP = true
 local isUsingControllers = false
-local isXInputDetected = false
 local isInMenu = false
 local enableVRCameraOffset = true
 
@@ -74,8 +74,6 @@ local g_isShowingStartPageIntro = false
 local configui = nil
 
 local version = "1.07"
-
-local backupLocomotionMode = 1
 
 function UEVRReady(instance)
     print("\n### VRFP version " .. version .. " ###\n")
@@ -126,7 +124,10 @@ function UEVRReady(instance)
 
                 local mountPawn = mounts.getMountPawn(pawn)
                 if uevrUtils.validate_object(mountPawn) ~= nil and uevrUtils.validate_object(mountPawn.RootComponent) ~= nil and mountPawn.RootComponent.K2_GetComponentLocation ~= nil then
-                    local currentOffset = mounts.getMountOffset()
+                    local currentOffset = isSwimming and playerSwimmingOffset or IsDisillusioned and playerDisillusionedOffset or mounts.getMountOffset()
+                    currentOffset.X = currentOffset.X + movementOffset.X
+                    currentOffset.Y = currentOffset.Y + movementOffset.Y
+                    currentOffset.Z = currentOffset.Z + movementOffset.Z
                     temp_vec3f:set(currentOffset.X, currentOffset.Y, currentOffset.Z) -- the vector representing the offset adjustment
                     temp_vec3:set(0, 0, 1) --the axis to rotate around
                     local forwardVector = kismet_math_library:RotateAngleAxis(temp_vec3f, rotation.y, temp_vec3)
@@ -679,37 +680,15 @@ function on_lazy_poll()
         -- wand.updateOffsetPosition(handPosition)
     -- end
 
-    if isFP and isDecoupledYawDisabled and not isInCinematic and not isUsingControllers and uevrUtils.validate_object(pawn) ~= nil and lastWandTargetDirection ~= nil and uevrUtils.validate_object(playerCameraManager) ~= nil then
+    if isFP and isDecoupledYawDisabled and mounts.isWalking() and not isInCinematic and not isUsingControllers and uevrUtils.validate_object(pawn) ~= nil and lastWandTargetDirection ~= nil and uevrUtils.validate_object(playerCameraManager) ~= nil then
         local currentRotation = playerCameraManager:GetCameraRotation()
         currentRotation.Pitch = math.atan(lastWandTargetDirection.Z/math.sqrt(lastWandTargetDirection.X^2+lastWandTargetDirection.Y^2))*180/math.pi
         pawn:SetPhoenixCameraRotation(currentRotation)
-        -- local currentDir = pawn:CalculateLookAtDirection()
-        -- currentDir.Z = lastWandTargetDirection.Z
-        -- pawn:SetPhoenixCameraLookAt(lastWandTargetDirection, delay)
     end
 
     if isFP and not isInCinematic and uevrUtils.validate_object(pawn) ~= nil then
-        local objectStateInfo = pawn:GetObjectStateInfo()
-        -- isMounted = objectStateInfo:IsMounted()
-        -- if isMounted then
-        --     print("Mounted\n")
-        --     backupLocomotionMode = locomotionMode
-        --     setLocomotionMode(0)
-        -- else
-        --     if locomotionMode ~= backupLocomotionMode then
-        --         setLocomotionMode(backupLocomotionMode)
-        --     end
-        -- end
-        if objectStateInfo:IsDisillusioned() then
-            playerOffset.Z = 35
-        elseif pawn:IsSwimming() then
-            playerOffset.Z = 15
-        else
-            playerOffset.Z = 65
-        end
-        -- local outState = { result = nil } -- Out parameter
-        -- pawn:GetBaseSpeedMode(outState)
-        -- print("Base Speed Mode: ", outState.result, "\n")
+        isSwimming = pawn:IsSwimming()
+        IsDisillusioned = pawn:GetObjectStateInfo():IsDisillusioned()
     end
 end
 
@@ -806,11 +785,10 @@ function on_post_calculate_stereo_view_offset(device, view_index, world_to_meter
 end
 
 function on_xinput_get_state(retval, user_index, state)
-    isXInputDetected = true
     local success, response = pcall(function()
         if isFP and not isInCinematic then
             local disableStickOverride = g_isPregame or isInMenu or isInCinematic or mounts.isOnBroom() or (gestureMode == 1 and gesturesModule.isCastingSpell(pawn, "Spell_Wingardium"))
-            decoupledYawCurrentRot = input.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, locomotionMode, controlMode, g_isLeftHanded, snapAngle, useSnapTurn, alphaDiff, disableStickOverride)
+            decoupledYawCurrentRot = input.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, locomotionMode, controlMode, g_isLeftHanded, snapAngle, useSnapTurn, alphaDiff, disableStickOverride, mounts.isWalking())
 
             if isUsingControllers then
                 if gestureMode == 1 then
@@ -1329,7 +1307,6 @@ local boneIndex = 1
 
 RegisterKeyBind(Key.F3, function()
     print("F3 pressed\n")
-    isXInputDetected = false
     locomotionMode = locomotionMode + 1
     if locomotionMode > 2 then
         locomotionMode = 0
