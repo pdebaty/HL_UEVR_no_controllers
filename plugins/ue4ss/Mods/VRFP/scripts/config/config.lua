@@ -56,6 +56,7 @@ Z - Positive values up, Negative values down
 ]]--
 -- playerOffset = {X=19, Y=-3, Z=70}
 playerOffset = {X=5, Y=0, Z=65}
+movementOffset = {X = 0, Y = 0, Z = 0}
 
 --[[
 Player swimming offset 

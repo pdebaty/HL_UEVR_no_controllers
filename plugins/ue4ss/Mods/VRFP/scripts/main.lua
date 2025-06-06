@@ -33,6 +33,7 @@ local isInCinematic = false
 local isInAlohomora = true
 local IsDisillusioned = false
 local isSwimming = false
+local isOnBroom = false
 local isFP = true
 local isUsingControllers = false
 local isInMenu = false
@@ -67,6 +68,7 @@ local cameraStackVal = true
 local hideActorForNextCinematic = false
 
 local g_isLeftHanded = false
+local g_isFlightInvertY = false
 local g_lastVolumetricFog = nil
 local g_isPregame = true
 local g_eulaClicked = false
@@ -124,10 +126,11 @@ function UEVRReady(instance)
 
                 local mountPawn = mounts.getMountPawn(pawn)
                 if uevrUtils.validate_object(mountPawn) ~= nil and uevrUtils.validate_object(mountPawn.RootComponent) ~= nil and mountPawn.RootComponent.K2_GetComponentLocation ~= nil then
-                    local currentOffset = isSwimming and playerSwimmingOffset or IsDisillusioned and playerDisillusionedOffset or mounts.getMountOffset()
-                    currentOffset.X = currentOffset.X + movementOffset.X
-                    currentOffset.Y = currentOffset.Y + movementOffset.Y
-                    currentOffset.Z = currentOffset.Z + movementOffset.Z
+                    local staticCurrentOffset = isSwimming and playerSwimmingOffset or IsDisillusioned and playerDisillusionedOffset or mounts.getMountOffset()
+                    local currentOffset = {}
+                    currentOffset.X = staticCurrentOffset.X + movementOffset.X
+                    currentOffset.Y = staticCurrentOffset.Y + movementOffset.Y
+                    currentOffset.Z = staticCurrentOffset.Z + movementOffset.Z
                     temp_vec3f:set(currentOffset.X, currentOffset.Y, currentOffset.Z) -- the vector representing the offset adjustment
                     temp_vec3:set(0, 0, 1) --the axis to rotate around
                     local forwardVector = kismet_math_library:RotateAngleAxis(temp_vec3f, rotation.y, temp_vec3)
@@ -281,7 +284,7 @@ function hidePlayer(state, force)
                 local children = characterMesh.AttachChildren
                 for i, child in ipairs(children) do
                     local childName = child:get_full_name()
-                    if string.find(childName, "Hair") or string.find(childName, "Bandanna") or (isUsingControllers and (string.find(childName, "Arms") or string.find(childName, "Wand"))) then
+                    if string.find(childName, "Hair") or string.find(childName, "Bandanna") or (isUsingControllers and (string.find(childName, "Arms") or string.find(childName, "Wand") or string.find(childName, "Gloves"))) then
                         child:SetHiddenInGame(true, false)
                     end
                 end
@@ -388,20 +391,25 @@ function onHandednessChanged(isLeftHanded)
     connectWand()
 end
 
-function handednessCheck()
+function cameraSettingsCheck()
+    if phoenixCameraSettings == nil then
+        phoenixCameraSettings = uevrUtils.find_first_of("Class /Script/Phoenix.PhoenixCameraSettings")
+    end
     if phoenixCameraSettings ~= nil then
-        local val = getIsLeftHanded()
+        local val = phoenixCameraSettings:GetGamepadSouthpaw()
         if val ~= g_isLeftHanded then
             g_isLeftHanded = val
             onHandednessChanged(val)
+        end
+        val = phoenixCameraSettings:GetFlightInvertY()
+        if val ~= g_isFlightInvertY then
+            g_isFlightInvertY = val
         end
     end
 end
 
 function getIsLeftHanded()
-    if phoenixCameraSettings == nil then
-        phoenixCameraSettings = uevrUtils.find_first_of("Class /Script/Phoenix.PhoenixCameraSettings")
-    end
+    
     if phoenixCameraSettings ~= nil then
         return phoenixCameraSettings:GetGamepadSouthpaw()
     end
@@ -633,7 +641,7 @@ function on_lazy_poll()
 
     preGameStateCheck()
     mediaPlayerCheck()
-    handednessCheck()
+    cameraSettingsCheck()
     local oldIsUsingControllers = isUsingControllers
     isUsingControllers = uevr.params.vr.is_using_controllers()
     if oldIsUsingControllers ~= isUsingControllers then
@@ -679,6 +687,18 @@ function on_lazy_poll()
         -- print("Distance is",distance,"\n")
         -- wand.updateOffsetPosition(handPosition)
     -- end
+
+    -- hide player's hands if on a broom
+    if isFP and forceShowPlayer and isUsingControllers and mounts.isOnBroom() ~= isOnBroom then
+        isOnBroom = mounts.isOnBroom()
+        if isOnBroom then
+            showHands = false
+            wand.setVisible(pawn, false)
+        else
+            showHands = true
+            wand.setVisible(pawn, true)
+        end
+    end
 
     if isFP and isDecoupledYawDisabled and mounts.isWalking() and not isInCinematic and not isUsingControllers and uevrUtils.validate_object(pawn) ~= nil and lastWandTargetDirection ~= nil and uevrUtils.validate_object(playerCameraManager) ~= nil then
         local currentRotation = playerCameraManager:GetCameraRotation()
@@ -788,7 +808,7 @@ function on_xinput_get_state(retval, user_index, state)
     local success, response = pcall(function()
         if isFP and not isInCinematic then
             local disableStickOverride = g_isPregame or isInMenu or isInCinematic or mounts.isOnBroom() or (gestureMode == 1 and gesturesModule.isCastingSpell(pawn, "Spell_Wingardium"))
-            decoupledYawCurrentRot = input.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, locomotionMode, controlMode, g_isLeftHanded, snapAngle, useSnapTurn, alphaDiff, disableStickOverride, mounts.isWalking())
+            decoupledYawCurrentRot = input.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, locomotionMode, controlMode, g_isLeftHanded, g_isFlightInvertY, snapAngle, useSnapTurn, alphaDiff, disableStickOverride, mounts.isWalking())
 
             if isUsingControllers then
                 if gestureMode == 1 then

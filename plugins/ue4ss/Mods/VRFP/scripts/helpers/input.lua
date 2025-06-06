@@ -8,8 +8,6 @@ local spellDeadZone = 12000
 local snapTurnDeadZone = 8000
 local triggerValue = 100
 
-movementOffset = {X = 0, Y = 0, Z = 0}
-
 local function isButtonPressed(state, button)
 	return state.Gamepad.wButtons & button ~= 0
 end
@@ -99,7 +97,7 @@ function doRightHandRemap(state)
 
 end
 
-function M.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, locomotionMode, controlMode, isLeftHanded, snapAngle, useSnapTurn, AlphaDiff, isInMenu, isWalking)
+function M.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, locomotionMode, controlMode, isLeftHanded, isFlightInvertY,snapAngle, useSnapTurn, AlphaDiff, isInMenu, isWalking)
 	--disable decoupled yaw during grip press
 	local gripButton = XINPUT_GAMEPAD_LEFT_SHOULDER
 	if isLeftHanded then
@@ -137,22 +135,36 @@ function M.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, lo
 
 	-- Move the camera forward if the movement thumbstick is pushed forward
 	-- Sharper S-curve: offset stays near 5 until sThumbLY ~20000, then rapidly increases
-	local movementY = isLeftHanded and state.Gamepad.sThumbRY or state.Gamepad.sThumbLY
-
-	if not isWalking then 
-		local throttle = state.Gamepad.bRightTrigger
-		movementY = math.max(throttle, movementY)
-	end
+	local forwardInput = isLeftHanded and state.Gamepad.sThumbRY or state.Gamepad.sThumbLY
+	local movementOffsetXMax = 10
 	local sharpness = 0.0004  -- Controls how sharp the transition is
-	local threshold = 20000   -- The value where the curve rapidly increases
-	local sigmoid = 1 / (1 + math.exp(-sharpness * (movementY - threshold)))
-
-	local movementOffsetXMax = isWalking and 10 or 20
-	movementOffset.X = math.floor((sigmoid * movementOffsetXMax) + 0.5)
+	local threshold = 20000  -- The value where the curve rapidly increases
 	if not isWalking then
-		movementOffset.Z = -math.floor((sigmoid * 10) + 0.5)
+		local throttleInput = 128 * (isLeftHanded and state.Gamepad.bLeftTrigger or state.Gamepad.bRightTrigger)
+		local boosterInput = 128 * (isLeftHanded and state.Gamepad.bRightTrigger or state.Gamepad.bLeftTrigger)
+		if boosterInput > 0 then
+			-- If booster is pressed, use it for forward movement
+			forwardInput = boosterInput
+			movementOffsetXMax = 30
+		else 
+			forwardInput = throttleInput
+		end
+		threshold = 0  -- Lower threshold for flying
+		local downwardInput = boosterInput + (isFlightInvertY and 1 or -1) * (isLeftHanded and state.Gamepad.sThumbLY or state.Gamepad.sThumbRY)
+		if downwardInput > 0 then
+			-- If the downward input is pressed, move the camera up
+			movementOffset.Z = math.floor((downwardInput * 10) + 0.5)
+		else
+			movementOffset.Z = 0
+		end
+		local sigmoidZ = 1 / (1 + math.exp(-sharpness * (downwardInput - threshold)))
+		local movementOffsetZMax = 10
+		movementOffset.Z = - math.floor((sigmoidZ * movementOffsetZMax) + 0.5)
 	end
+	local sigmoidX = 1 / (1 + math.exp(-sharpness * (forwardInput - threshold)))
 
+	movementOffset.X = math.floor((sigmoidX * movementOffsetXMax) + 0.5)
+	
 	--calculate decoupled Yaw
 	if not isDecoupledYawDisabled and not overrideDecoupledYaw then
 		--Read Gamepad stick input for rotation compensation
