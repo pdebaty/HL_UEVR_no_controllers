@@ -136,35 +136,41 @@ function M.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, lo
 	-- Move the camera forward if the movement thumbstick is pushed forward
 	-- Sharper S-curve: offset stays near 5 until sThumbLY ~20000, then rapidly increases
 	local forwardInput = isLeftHanded and state.Gamepad.sThumbRY or state.Gamepad.sThumbLY
-	local movementOffsetXMax = 10
-	local sharpness = 0.0004  -- Controls how sharp the transition is
-	local threshold = 20000  -- The value where the curve rapidly increases
+	local movementOffsetXMax = 20
+	local sharpness = 0.001  -- Controls how sharp the transition is
+	local threshold = 30000  -- The value where the curve rapidly increases
+	if forwardInput > 2200 then movementOffset.X = 0 end
+	-- print("forwardInput: ", forwardInput, "isWalking:", isWalking, "isLeftHanded:", isLeftHanded, "\n")
 	if not isWalking then
 		local throttleInput = 128 * (isLeftHanded and state.Gamepad.bLeftTrigger or state.Gamepad.bRightTrigger)
 		local boosterInput = 128 * (isLeftHanded and state.Gamepad.bRightTrigger or state.Gamepad.bLeftTrigger)
 		if boosterInput > 0 then
 			-- If booster is pressed, use it for forward movement
 			forwardInput = boosterInput
-			movementOffsetXMax = 30
+			movementOffsetXMax = 20
 		else 
 			forwardInput = throttleInput
 		end
+		if forwardInput > 2200 then movementOffset.X = 0 end
 		threshold = 0  -- Lower threshold for flying
-		local downwardInput = boosterInput + (isFlightInvertY and 1 or -1) * (isLeftHanded and state.Gamepad.sThumbLY or state.Gamepad.sThumbRY)
-		if downwardInput > 0 then
-			-- If the downward input is pressed, move the camera up
-			movementOffset.Z = math.floor((downwardInput * 10) + 0.5)
-		else
+		local downwardInput = (isFlightInvertY and 1 or -1) * (isLeftHanded and state.Gamepad.sThumbLY or state.Gamepad.sThumbRY)
+		if downwardInput > 2200 then
+			movementOffset.X = downwardInput * 30 / 32767
+		end
+		downwardInput = downwardInput - boosterInput * 2
+		local sigmoidZ = 1 / (1 + math.exp(-sharpness * (downwardInput - threshold)))
+		local movementOffsetZMax = 20
+		movementOffset.Z = math.floor((sigmoidZ * movementOffsetZMax) + 0.5)
+		if movementOffset.Z < 0 then
 			movementOffset.Z = 0
 		end
-		local sigmoidZ = 1 / (1 + math.exp(-sharpness * (downwardInput - threshold)))
-		local movementOffsetZMax = 10
-		movementOffset.Z = - math.floor((sigmoidZ * movementOffsetZMax) + 0.5)
 	end
-	local sigmoidX = 1 / (1 + math.exp(-sharpness * (forwardInput - threshold)))
+	if forwardInput > 2200 then
+		local sigmoidX = 1 / (1 + math.exp(-sharpness * (forwardInput - threshold)))
+		movementOffset.X = movementOffset.X + math.floor((sigmoidX * movementOffsetXMax) + 0.5)
+	end
+	-- print("movementOffset.X: ", movementOffset.X, "movementOffset.Z: ", movementOffset.Z, "\n")
 
-	movementOffset.X = math.floor((sigmoidX * movementOffsetXMax) + 0.5)
-	
 	--calculate decoupled Yaw
 	if not isDecoupledYawDisabled and not overrideDecoupledYaw then
 		--Read Gamepad stick input for rotation compensation

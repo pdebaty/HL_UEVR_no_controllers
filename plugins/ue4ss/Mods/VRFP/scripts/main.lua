@@ -834,7 +834,7 @@ function on_xinput_get_state(retval, user_index, state)
 end
 
 function on_xinput_set_state(retval, user_index, state)
-    print("on_xinput_set_state called: ", state.wLeftMotorSpeed, ", ", state.wRightMotorSpeed, "\n")
+    -- print("on_xinput_set_state called: ", state.wLeftMotorSpeed, ", ", state.wRightMotorSpeed, "\n")
     if isUsingControllers and (state.wLeftMotorSpeed > 0 or state.wRightMotorSpeed > 0) then
         uevr.params.vr.trigger_haptic_vibration(0, 0.1, 200, 1.0, uevr.params.vr.get_right_joystick_source())
         uevr.params.vr.trigger_haptic_vibration(0, 0.1, 200, 1.0, uevr.params.vr.get_left_joystick_source())
