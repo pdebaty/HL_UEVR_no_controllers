@@ -75,6 +75,8 @@ local g_eulaClicked = false
 local g_isShowingStartPageIntro = false
 local configui = nil
 
+local currentOffset = { X = playerOffset.X, Y = playerOffset.Y, Z = playerOffset.Z }
+
 local version = "1.07"
 
 function UEVRReady(instance)
@@ -126,11 +128,21 @@ function UEVRReady(instance)
 
                 local mountPawn = mounts.getMountPawn(pawn)
                 if uevrUtils.validate_object(mountPawn) ~= nil and uevrUtils.validate_object(mountPawn.RootComponent) ~= nil and mountPawn.RootComponent.K2_GetComponentLocation ~= nil then
-                    local staticCurrentOffset = isSwimming and playerSwimmingOffset or IsDisillusioned and playerDisillusionedOffset or mounts.getMountOffset()
-                    local currentOffset = {}
-                    currentOffset.X = staticCurrentOffset.X + movementOffset.X
-                    currentOffset.Y = staticCurrentOffset.Y + movementOffset.Y
-                    currentOffset.Z = staticCurrentOffset.Z + movementOffset.Z
+                    local staticTargetOffset = isSwimming and playerSwimmingOffset or IsDisillusioned and playerDisillusionedOffset or mounts.getMountOffset()
+                    local targetOffset = { 
+                        X = staticTargetOffset.X + movementOffset.X,
+                        Y = staticTargetOffset.Y + movementOffset.Y,
+                        Z = staticTargetOffset.Z + movementOffset.Z
+                    }
+                    if (targetOffset.X ~= currentOffset.X) then
+                        currentOffset.X = currentOffset.X + (targetOffset.X > currentOffset.X and 1 or -1)
+                    end
+                    if (targetOffset.Y ~= currentOffset.Y) then
+                        currentOffset.Y = currentOffset.Y + (targetOffset.Y > currentOffset.Y and 1 or -1)
+                    end
+                    if (targetOffset.Z ~= currentOffset.Z) then
+                        currentOffset.Z = currentOffset.Z + (targetOffset.Z > currentOffset.Z and 1 or -1)
+                    end
                     temp_vec3f:set(currentOffset.X, currentOffset.Y, currentOffset.Z) -- the vector representing the offset adjustment
                     temp_vec3:set(0, 0, 1) --the axis to rotate around
                     local forwardVector = kismet_math_library:RotateAngleAxis(temp_vec3f, rotation.y, temp_vec3)
@@ -289,19 +301,6 @@ function hidePlayer(state, force)
                     end
                 end
             end
-            -- local hairMesh = uevrUtils.getChildComponent(characterMesh, "Hair")
-            -- local bandannaMesh = uevrUtils.getChildComponent(characterMesh, "Bandanna")
-			
-            -- if uevrUtils.validate_object(hairMesh) ~= nil and hairMesh.SetVisibility ~= nil then
-            --     hairMesh:SetVisibility(not state, true)
-            -- else
-            --     print("hidePlayer: Hair mesh not valid\n")
-            -- end
-            -- if uevrUtils.validate_object(bandannaMesh) ~= nil and bandannaMesh.SetVisibility ~= nil then
-            --     bandannaMesh:SetVisibility(not state, true)
-            -- else
-            --     print("hidePlayer: Bandanna mesh not valid\n")
-            -- end
         else
             print("hidePlayer: Pawn not valid\n")
         end
@@ -804,9 +803,29 @@ function on_post_calculate_stereo_view_offset(device, view_index, world_to_meter
 
 end
 
+local currentUserIndex = 0
+local currentMaxInput = 0
+
 function on_xinput_get_state(retval, user_index, state)
     local success, response = pcall(function()
         if isFP and not isInCinematic then
+            -- when using multiple controllers, skip inactive one
+            if user_index ~= currentUserIndex then
+                local maxInput = math.max(
+                    math.abs(state.Gamepad.sThumbLX),
+                    math.abs(state.Gamepad.sThumbLY),
+                    math.abs(state.Gamepad.sThumbRX),
+                    math.abs(state.Gamepad.sThumbRY),
+                    math.abs(state.Gamepad.bLeftTrigger * 128),
+                    math.abs(state.Gamepad.bRightTrigger * 128)
+                )
+                if maxInput > currentMaxInput or state.Gamepad.wButtons ~= 0 then
+                    currentMaxInput = maxInput
+                    currentUserIndex = user_index
+                else 
+                    return
+                end
+            end
             local disableStickOverride = g_isPregame or isInMenu or isInCinematic or mounts.isOnBroom() or (gestureMode == 1 and gesturesModule.isCastingSpell(pawn, "Spell_Wingardium"))
             decoupledYawCurrentRot = input.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, locomotionMode, controlMode, g_isLeftHanded, g_isFlightInvertY, snapAngle, useSnapTurn, alphaDiff, disableStickOverride, mounts.isWalking())
 

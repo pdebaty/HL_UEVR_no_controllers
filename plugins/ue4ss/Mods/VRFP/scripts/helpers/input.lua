@@ -134,40 +134,34 @@ function M.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, lo
 	end
 
 	-- Move the camera forward if the movement thumbstick is pushed forward
-	-- Sharper S-curve: offset stays near 5 until sThumbLY ~20000, then rapidly increases
 	local forwardInput = isLeftHanded and state.Gamepad.sThumbRY or state.Gamepad.sThumbLY
-	local movementOffsetXMax = 20
-	local sharpness = 0.001  -- Controls how sharp the transition is
-	local threshold = 30000  -- The value where the curve rapidly increases
-	if forwardInput > 2200 then movementOffset.X = 0 end
+	local threshold = 30000  -- The input value where the offset is applied
+	movementOffset.X = 0
 	-- print("forwardInput: ", forwardInput, "isWalking:", isWalking, "isLeftHanded:", isLeftHanded, "\n")
 	if not isWalking then
+		movementOffset.X = -8
+		threshold = 0  -- Lower threshold for flying
 		local throttleInput = 128 * (isLeftHanded and state.Gamepad.bLeftTrigger or state.Gamepad.bRightTrigger)
 		local boosterInput = 128 * (isLeftHanded and state.Gamepad.bRightTrigger or state.Gamepad.bLeftTrigger)
 		if boosterInput > 0 then
 			-- If booster is pressed, use it for forward movement
-			forwardInput = boosterInput
-			movementOffsetXMax = 20
-		else 
+			forwardInput = boosterInput * 1.5
+		elseif throttleInput > 0 then
 			forwardInput = throttleInput
+		else 
+			forwardInput = isLeftHanded and state.Gamepad.sThumbLY or state.Gamepad.sThumbRY
 		end
-		if forwardInput > 2200 then movementOffset.X = 0 end
-		threshold = 0  -- Lower threshold for flying
-		local downwardInput = (isFlightInvertY and 1 or -1) * (isLeftHanded and state.Gamepad.sThumbLY or state.Gamepad.sThumbRY)
+		local downwardInput = isButtonPressed(state, XINPUT_GAMEPAD_B) and 32767 or (isFlightInvertY and 1 or -1) * (isLeftHanded and state.Gamepad.sThumbLY or state.Gamepad.sThumbRY)
 		if downwardInput > 2200 then
-			movementOffset.X = downwardInput * 30 / 32767
+			movementOffset.X = movementOffset.X + math.floor(downwardInput * 20 / 32767 + 0.5)
+		else
+			downwardInput = 0
 		end
-		downwardInput = downwardInput - boosterInput * 2
-		local sigmoidZ = 1 / (1 + math.exp(-sharpness * (downwardInput - threshold)))
-		local movementOffsetZMax = 20
-		movementOffset.Z = math.floor((sigmoidZ * movementOffsetZMax) + 0.5)
-		if movementOffset.Z < 0 then
-			movementOffset.Z = 0
-		end
+		downwardInput = downwardInput - boosterInput
+		movementOffset.Z = math.floor(downwardInput * 17 / 32767 + 0.5)
 	end
-	if forwardInput > 2200 then
-		local sigmoidX = 1 / (1 + math.exp(-sharpness * (forwardInput - threshold)))
-		movementOffset.X = movementOffset.X + math.floor((sigmoidX * movementOffsetXMax) + 0.5)
+	if forwardInput > threshold then
+		movementOffset.X = movementOffset.X + math.floor((forwardInput - threshold) * 15 / (32767 - threshold) + 0.5)
 	end
 	-- print("movementOffset.X: ", movementOffset.X, "movementOffset.Z: ", movementOffset.Z, "\n")
 

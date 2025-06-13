@@ -55,8 +55,8 @@ Y - Positive values right, Negative values left
 Z - Positive values up, Negative values down
 ]]--
 -- playerOffset = {X=19, Y=-3, Z=70}
-playerOffset = {X=5, Y=0, Z=65}
-movementOffset = {X = 0, Y = 0, Z = 0}
+playerOffset = {X=3, Y=0, Z=65}
+movementOffset = {X=0, Y=0, Z=0}
 
 --[[
 Player swimming offset 
@@ -64,7 +64,7 @@ X - Positive values forward, Negative values backward
 Y - Positive values right, Negative values left
 Z - Positive values up, Negative values down
 ]]--
-playerSwimmingOffset = {X=5, Y=0, Z=15}
+playerSwimmingOffset = {X=3, Y=0, Z=15}
 
 --[[
 Player disillusioned offset 
@@ -72,7 +72,7 @@ X - Positive values forward, Negative values backward
 Y - Positive values right, Negative values left
 Z - Positive values up, Negative values down
 ]]--
-playerDisillusionedOffset = {X=5, Y=0, Z=35}
+playerDisillusionedOffset = {X=3, Y=0, Z=35}
 
 --[[
 Broom Mount offset 
