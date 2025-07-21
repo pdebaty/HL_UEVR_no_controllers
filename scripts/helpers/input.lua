@@ -137,7 +137,7 @@ function M.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, lo
 
 	-- Move the camera forward if the movement thumbstick is pushed forward
 	local forwardInput = isLeftHanded and state.Gamepad.sThumbRY or state.Gamepad.sThumbLY
-	local threshold = 30000  -- The input value where the offset is applied
+	local threshold = useGamepad and 30000 or 20000  -- The input value where the offset is applied
 	movementOffset.X = 0
 	-- print("forwardInput: ", forwardInput, "isWalking:", isWalking, "isLeftHanded:", isLeftHanded, "\n")
 	if not isWalking then

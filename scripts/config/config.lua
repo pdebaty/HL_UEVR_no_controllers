@@ -60,7 +60,7 @@ Y - Positive values right, Negative values left
 Z - Positive values up, Negative values down
 ]]--
 -- playerOffset = {X=19, Y=-3, Z=70}
-playerOffset = {X=3, Y=0, Z=65}
+playerOffset = {X=8, Y=0, Z=65}
 movementOffset = {X=0, Y=0, Z=0}
 
 --[[
@@ -69,7 +69,7 @@ X - Positive values forward, Negative values backward
 Y - Positive values right, Negative values left
 Z - Positive values up, Negative values down
 ]]--
-playerSwimmingOffset = {X=3, Y=0, Z=15}
+playerSwimmingOffset = {X=8, Y=0, Z=15}
 
 --[[
 Player disillusioned offset 
@@ -77,7 +77,7 @@ X - Positive values forward, Negative values backward
 Y - Positive values right, Negative values left
 Z - Positive values up, Negative values down
 ]]--
-playerDisillusionedOffset = {X=3, Y=0, Z=35}
+playerDisillusionedOffset = {X=8, Y=0, Z=35}
 --[[
 Broom Mount offset 
 X - Positive values forward, Negative values backward
@@ -137,6 +137,18 @@ The speed (from 1 to 100) to turn when snap turn is off
 smoothTurnSpeed = 50
 
 wandAimOffset = 0.0
+
+--[[
+Use Gamepad instead of VR controllers 
+true = Use Gamepad only
+false = Use VR Controllers
+]]--
+useGamepad = false
+
+--[[
+Show Full Body
+]]--
+showFullBody = true
 
 local configDefinition = {
 	{
@@ -255,6 +267,18 @@ local configDefinition = {
 				id = "attachedUI",
 				label = "Attach UI to View",
 				initialValue = false
+			},
+			{
+				widgetType = "checkbox",
+				id = "useGamepad",
+				label = "Use Gamepad instead of VR controllers",
+				initialValue = useGamepad
+			},
+			{
+				widgetType = "checkbox",
+				id = "showFullBody",
+				label = "Show full body",
+				initialValue = showFullBody
 			}
 		}
 	}
@@ -279,6 +303,8 @@ function M.loadSettings()
 	snapAngle = configui.getValue("snapAngle")
 	smoothTurnSpeed = configui.getValue("smoothTurnSpeed")
 	wandAimOffset = configui.getValue("wandAimOffset")
+	useGamepad = configui.getValue("useGamepad")
+	showFullBody = configui.getValue("showFullBody")
 	configui.hideWidget("snapAngle", not useSnapTurn)	
 	configui.hideWidget("smoothTurnSpeed", useSnapTurn)	
 	
@@ -295,7 +321,8 @@ function M.loadSettings()
 	print("Use Snap Turn:", useSnapTurn, "\n")
 	print("Snap Angle:", snapAngle, "\n")
 	print("Smooth Turn Speed:", smoothTurnSpeed, "\n")
-
+	print("Use Gamepad:", useGamepad, "\n")
+	print("Show Full Body:", showFullBody, "\n")
 end
 
 configui.onUpdate("wandAimOffset", function(value)

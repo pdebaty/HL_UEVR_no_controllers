@@ -27,8 +27,6 @@ local isInAlohomora = false
 local isInAstronomyPuzzle = false
 local IsDisillusioned = false
 local isSwimming = false
-local isOnBroom = false
-local isUsingControllers = false
 local isFP = true
 local isInMenu = false
 local isInMainMenu = false
@@ -241,6 +239,18 @@ configui.onUpdate("isFP", function(value)
 	end
 end)
 
+configui.onUpdate("useGamepad", function(value)
+	useGamepad = value
+	if (value) then
+		disconnectWand()
+		disconnectHands()
+	end
+	isFP = not isFP
+	updatePlayer()
+	isFP = not isFP
+	updatePlayer()
+end)
+
 configui.onUpdate("showHands", function(value)
 	showHands = value
 	disconnectWand()
@@ -253,6 +263,14 @@ end)
 
 configui.onUpdate("attachedUI", function(value)
 	uevr.params.vr.set_mod_value("UI_FollowView", value and "true" or "false")
+end)
+
+configui.onUpdate("showFullBody", function(value)
+	isFP = not isFP
+	updatePlayer()
+	showFullBody = value
+	isFP = not isFP
+	updatePlayer()
 end)
 
 
@@ -379,25 +397,34 @@ function hidePlayer(state, force)
 		local mountPawn = mounts.getMountPawn(pawn)			
 		if uevrUtils.validate_object(mountPawn) ~= nil then
 			local characterMesh = mountPawn.Mesh
-			if uevrUtils.validate_object(characterMesh) ~= nil and characterMesh.SetCullDistance ~= nil then
-                if state then characterMesh:SetCullDistance(0.0001)
-                else 
-                    characterMesh:SetCullDistance(0) 
-                    characterMesh:SetHiddenInGame(false, true)
-                end
-            else
-                print("hidePlayer: Character mesh not valid\n")
-            end
+			if showFullBody then
+				if uevrUtils.validate_object(characterMesh) ~= nil and characterMesh.SetCullDistance ~= nil then
+					if state then characterMesh:SetCullDistance(0.0001)
+					else 
+						characterMesh:SetCullDistance(0) 
+						characterMesh:SetHiddenInGame(false, true)
+					end
+				else
+					print("hidePlayer: Character mesh not valid\n")
+				end
 
-            if state then
-                local children = characterMesh.AttachChildren
-                for i, child in ipairs(children) do
-                    local childName = child:get_full_name()
-                    if string.find(childName, "Hair") or string.find(childName, "Bandanna") or (isUsingControllers and (string.find(childName, "Arms") or string.find(childName, "Wand") or string.find(childName, "Gloves"))) then
-                        child:SetHiddenInGame(true, false)
-                    end
-                end
-            end
+				if state then
+					local children = characterMesh.AttachChildren
+					for i, child in ipairs(children) do
+						local childName = child:get_full_name()
+						if string.find(childName, "Hair") or string.find(childName, "Bandanna") or (not useGamepad and (string.find(childName, "Arms") or string.find(childName, "Wand") or string.find(childName, "Gloves"))) then
+							child:SetHiddenInGame(true, false)
+						end
+					end
+				end
+			else
+				if uevrUtils.validate_object(characterMesh) ~= nil and characterMesh.SetVisibility ~= nil then
+					characterMesh:SetVisibility(not state, true)
+				else
+					print("hidePlayer: Character mesh not valid\n")
+				end
+			end
+			
 		else
 			print("hidePlayer: Pawn not valid\n")
 		end
@@ -427,6 +454,7 @@ function FindAllOf(name)
 end
 
 function setCharacterInFPSView(val)
+	if showFullBody then return end
     PitchToTransformCurves = FindAllOf("BlueprintGeneratedClass /Game/Data/Camera/Behaviors/BP_PitchToTransformCurves_Default.BP_PitchToTransformCurves_Default_C")
     AmbientCamAnim_Idle = FindAllOf("BlueprintGeneratedClass /Game/Data/Camera/Behaviors/AmbientMovement/BP_AmbientCamAnim_Idle.BP_AmbientCamAnim_Idle_C")
     AmbientCamAnim_Jog = FindAllOf("BlueprintGeneratedClass /Game/Data/Camera/Behaviors/AmbientMovement/BP_AmbientCamAnim_Jog.BP_AmbientCamAnim_Jog_C")
@@ -1029,20 +1057,15 @@ function on_lazy_poll()
 	disguiseCheck()
 	wandCheck()
 	updateVolumetricFog()
-	local oldIsUsingControllers = isUsingControllers
-    isUsingControllers = uevr.params.vr.is_using_controllers()
-    if oldIsUsingControllers ~= isUsingControllers then
-        print("Is using controllers",isUsingControllers,"\n")
-    end
-	if isFP and showHands and not isInCinematic and not hands.exists() and isUsingControllers then
+	if isFP and showHands and not isInCinematic and not hands.exists() and not useGamepad then
 		createHands()
 	end
 
-	if isFP and not isWandDisabled and not isInCinematic and not wand.isConnected() and isUsingControllers then --can be disabled when disguised as prof black or in deathly hollows level
+	if isFP and not isWandDisabled and not isInCinematic and not wand.isConnected() and not useGamepad then --can be disabled when disguised as prof black or in deathly hollows level
 		connectWand()
 	end
 	
-	if isFP and manualHideWand and isUsingControllers then
+	if isFP and manualHideWand and not useGamepad then
 		updateWandVisibility()
 	end
 	
@@ -1061,6 +1084,13 @@ function on_lazy_poll()
 	-- local rotator =  kismet_math_library:Quat_Rotator(quat)
 	-- print("Pose", rotator.Roll, rotator.Pitch, rotator.Yaw )
 	-- print("Diff", rotator.Pitch - lastHMDRotation.Yaw)
+
+	if isFP and isDecoupledYawDisabled and mounts.isWalking() and not isInCinematic and useGamepad and uevrUtils.validate_object(pawn) ~= nil and lastWandTargetDirection ~= nil and uevrUtils.validate_object(playerCameraManager) ~= nil then
+        local currentRotation = playerCameraManager:GetCameraRotation()
+        currentRotation.Pitch = math.atan(lastWandTargetDirection.Z/math.sqrt(lastWandTargetDirection.X^2+lastWandTargetDirection.Y^2))*180/math.pi
+        pawn:SetPhoenixCameraRotation(currentRotation)
+    end
+
 	if isFP and not isInCinematic and uevrUtils.validate_object(pawn) ~= nil then
         isSwimming = pawn:IsSwimming()
         IsDisillusioned = pawn:GetObjectStateInfo():IsDisillusioned()
@@ -1123,21 +1153,21 @@ function on_pre_engine_tick(engine, delta)
 	end
 	
 	checkIsInMenu()
-	if isUsingControllers then	
-		lastWandTargetLocation, lastWandTargetDirection, lastWandPosition = wand.getWandTargetLocationAndDirection(useCrossHair and not g_isPregame)
-	else
+	if useGamepad then	
         lastWandTargetLocation, lastWandTargetDirection, lastWandPosition = getHmdTargetLocationAndDirection(useCrossHair and not g_isPregame)
+	else
+		lastWandTargetLocation, lastWandTargetDirection, lastWandPosition = wand.getWandTargetLocationAndDirection(useCrossHair and not g_isPregame)
     end
 
 	if isFP and not isInCutscene() and uevrUtils.validate_object(pawn) ~= nil then			
-		if gestureMode == GestureMode.Spells and (not (g_isPregame or isInMenu or isGesturesDisabled or isInGestureCooldown or not mounts.isWalking())) then
+		if gestureMode == GestureMode.Spells and (not (g_isPregame or isInMenu or isGesturesDisabled or isInGestureCooldown or not mounts.isWalking())) and not useGamepad then
 			--print("Is wand equipped",pawn:IsWandEquipped(),"\n")
 			gesturesModule.handleGestures(pawn, gestureMode, lastWandTargetDirection, lastWandPosition, delta)
 		end
 		
 		if not isDecoupledYawDisabled then
 			local targetDirection = nil
-			if wand.isConnected() then targetDirection = lastWandTargetDirection else targetDirection = controllers.getControllerDirection(1) end
+			if wand.isConnected() or useGamepad then targetDirection = lastWandTargetDirection else targetDirection = controllers.getControllerDirection(1) end
 			alphaDiff = decoupledYaw.handleDecoupledYaw(pawn, alphaDiff, targetDirection, lastHMDDirection, locomotionMode)
 		end
 		
@@ -1220,7 +1250,7 @@ function on_xinput_get_state(retval, user_index, state)
 			local disableStickOverride = g_isPregame or isInMenu or mounts.isOnBroom() or (gestureMode == GestureMode.Spells and gesturesModule.isCastingSpell(pawn, "Spell_Wingardium"))
 			decoupledYawCurrentRot = input.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, locomotionMode, controlMode, g_isLeftHanded, g_isFlightInvertY, snapAngle, smoothTurnSpeed, useSnapTurn, alphaDiff, disableStickOverride, mounts.isWalking())
 			
-			if isUsingControllers then
+			if not useGamepad then
 				if gestureMode == GestureMode.Spells then
 					gesturesModule.handleInput(state, g_isLeftHanded)
 				end
