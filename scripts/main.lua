@@ -25,7 +25,10 @@ local version = "1.08a"
 local isInCinematic = false
 local isInAlohomora = false
 local isInAstronomyPuzzle = false
-
+local IsDisillusioned = false
+local isSwimming = false
+local isOnBroom = false
+local isUsingControllers = false
 local isFP = true
 local isInMenu = false
 local isInMainMenu = false
@@ -59,6 +62,7 @@ local cameraStackVal = true
 local hideActorForNextCinematic = false
 
 local g_isLeftHanded = false
+local g_isFlightInvertY = false
 local g_lastVolumetricFog = nil
 local g_isPregame = true
 local g_eulaClicked = false
@@ -67,6 +71,8 @@ local g_fieldGuideUIManager = nil
 local g_wandStyle = nil
 local g_lastTabIndex = nil
 local g_armState = nil
+
+local currentOffset = { X = playerOffset.X, Y = playerOffset.Y, Z = playerOffset.Z }
 
 register_key_bind("F1", function()
     print("F1 pressed\n")
@@ -124,7 +130,21 @@ function UEVRReady(instance)
 								
 				local mountPawn = mounts.getMountPawn(pawn)
 				if uevrUtils.validate_object(mountPawn) ~= nil and uevrUtils.validate_object(mountPawn.RootComponent) ~= nil and mountPawn.RootComponent.K2_GetComponentLocation ~= nil then
-					local currentOffset = mounts.getMountOffset()
+					local staticTargetOffset = isSwimming and playerSwimmingOffset or IsDisillusioned and playerDisillusionedOffset or mounts.getMountOffset()
+                    local targetOffset = { 
+                        X = staticTargetOffset.X + movementOffset.X,
+                        Y = staticTargetOffset.Y + movementOffset.Y,
+                        Z = staticTargetOffset.Z + movementOffset.Z
+                    }
+                    if (targetOffset.X ~= currentOffset.X) then
+                        currentOffset.X = currentOffset.X + (targetOffset.X > currentOffset.X and 1 or -1)
+                    end
+                    if (targetOffset.Y ~= currentOffset.Y) then
+                        currentOffset.Y = currentOffset.Y + (targetOffset.Y > currentOffset.Y and 1 or -1)
+                    end
+                    if (targetOffset.Z ~= currentOffset.Z) then
+                        currentOffset.Z = currentOffset.Z + (targetOffset.Z > currentOffset.Z and 1 or -1)
+                    end
 					temp_vec3f:set(currentOffset.X, currentOffset.Y, currentOffset.Z) -- the vector representing the offset adjustment
 					temp_vec3:set(0, 0, 1) --the axis to rotate around
 					local forwardVector = kismet_math_library:RotateAngleAxis(temp_vec3f, rotation.y, temp_vec3)
@@ -359,11 +379,25 @@ function hidePlayer(state, force)
 		local mountPawn = mounts.getMountPawn(pawn)			
 		if uevrUtils.validate_object(mountPawn) ~= nil then
 			local characterMesh = mountPawn.Mesh
-			if uevrUtils.validate_object(characterMesh) ~= nil and characterMesh.SetVisibility ~= nil then
-				characterMesh:SetVisibility(not state, true)
-			else
-				print("hidePlayer: Character mesh not valid\n")
-			end
+			if uevrUtils.validate_object(characterMesh) ~= nil and characterMesh.SetCullDistance ~= nil then
+                if state then characterMesh:SetCullDistance(0.0001)
+                else 
+                    characterMesh:SetCullDistance(0) 
+                    characterMesh:SetHiddenInGame(false, true)
+                end
+            else
+                print("hidePlayer: Character mesh not valid\n")
+            end
+
+            if state then
+                local children = characterMesh.AttachChildren
+                for i, child in ipairs(children) do
+                    local childName = child:get_full_name()
+                    if string.find(childName, "Hair") or string.find(childName, "Bandanna") or (isUsingControllers and (string.find(childName, "Arms") or string.find(childName, "Wand") or string.find(childName, "Gloves"))) then
+                        child:SetHiddenInGame(true, false)
+                    end
+                end
+            end
 		else
 			print("hidePlayer: Pawn not valid\n")
 		end
@@ -454,6 +488,10 @@ function handednessCheck()
 			g_isLeftHanded = val
 			onHandednessChanged(val)
 		end
+		val = phoenixCameraSettings:GetFlightInvertY()
+        if val ~= g_isFlightInvertY then
+            g_isFlightInvertY = val
+        end
 	end
 end
 
@@ -991,16 +1029,20 @@ function on_lazy_poll()
 	disguiseCheck()
 	wandCheck()
 	updateVolumetricFog()
-	
-	if isFP and showHands and not isInCinematic and not hands.exists() then
+	local oldIsUsingControllers = isUsingControllers
+    isUsingControllers = uevr.params.vr.is_using_controllers()
+    if oldIsUsingControllers ~= isUsingControllers then
+        print("Is using controllers",isUsingControllers,"\n")
+    end
+	if isFP and showHands and not isInCinematic and not hands.exists() and isUsingControllers then
 		createHands()
 	end
 
-	if isFP and not isWandDisabled and not isInCinematic and not wand.isConnected() then --can be disabled when disguised as prof black or in deathly hollows level
+	if isFP and not isWandDisabled and not isInCinematic and not wand.isConnected() and isUsingControllers then --can be disabled when disguised as prof black or in deathly hollows level
 		connectWand()
 	end
 	
-	if isFP and manualHideWand then
+	if isFP and manualHideWand and isUsingControllers then
 		updateWandVisibility()
 	end
 	
@@ -1019,6 +1061,10 @@ function on_lazy_poll()
 	-- local rotator =  kismet_math_library:Quat_Rotator(quat)
 	-- print("Pose", rotator.Roll, rotator.Pitch, rotator.Yaw )
 	-- print("Diff", rotator.Pitch - lastHMDRotation.Yaw)
+	if isFP and not isInCinematic and uevrUtils.validate_object(pawn) ~= nil then
+        isSwimming = pawn:IsSwimming()
+        IsDisillusioned = pawn:GetObjectStateInfo():IsDisillusioned()
+    end
 end
 
 function on_level_change(level)
@@ -1033,6 +1079,39 @@ function on_level_change(level)
 	initLevel()
 end
 
+function getHmdTargetLocationAndDirection(useLineTrace)
+    local hmdTargetLocation = nil
+    local hmdPosition = nil
+    local hmdDirection = nil
+    local pawnLocation = pawn.RootComponent:K2_GetComponentLocation()
+
+    if pawnLocation and lastHMDDirection then
+        hmdPosition = {
+            X= pawnLocation.X + playerOffset.X,
+            Y= pawnLocation.Y + playerOffset.Y,
+            Z= pawnLocation.Z + playerOffset.Z
+        }
+        hmdDirection = { X=lastHMDDirection.X, Y=lastHMDDirection.Y, Z=lastHMDDirection.Z }
+        hmdTargetLocation = {
+            X = hmdPosition.X + (lastHMDDirection.X * 8192.0),
+            Y = hmdPosition.Y + (lastHMDDirection.Y * 8192.0),
+            Z = hmdPosition.Z + (lastHMDDirection.Z * 8192.0)
+        }
+    end
+    -- print("HMD Target Location", hmdTargetLocation.X, hmdTargetLocation.Y, hmdTargetLocation.Z, "\n")
+    if useLineTrace then
+        local ignore_actors = {}
+        local world = getWorld()
+        if world ~= nil then
+            local hit = kismet_system_library:LineTraceSingle(world, pawnLocation, hmdTargetLocation, 0, true, ignore_actors, 0, reusable_hit_result, true, zero_color, zero_color, 1.0)
+            if hit and reusable_hit_result.Distance > 10 then
+                hmdTargetLocation = {X=reusable_hit_result.Location.X, Y=reusable_hit_result.Location.Y, Z=reusable_hit_result.Location.Z}
+            end
+        end
+    end
+    return hmdTargetLocation, hmdDirection, hmdPosition
+end
+
 function on_pre_engine_tick(engine, delta)
 	if configui.getValue("fpCinematic") ~= true then
 		checkCinematic() 
@@ -1044,8 +1123,11 @@ function on_pre_engine_tick(engine, delta)
 	end
 	
 	checkIsInMenu()
-		
-	lastWandTargetLocation, lastWandTargetDirection, lastWandPosition = wand.getWandTargetLocationAndDirection(useCrossHair and not g_isPregame)
+	if isUsingControllers then	
+		lastWandTargetLocation, lastWandTargetDirection, lastWandPosition = wand.getWandTargetLocationAndDirection(useCrossHair and not g_isPregame)
+	else
+        lastWandTargetLocation, lastWandTargetDirection, lastWandPosition = getHmdTargetLocationAndDirection(useCrossHair and not g_isPregame)
+    end
 
 	if isFP and not isInCutscene() and uevrUtils.validate_object(pawn) ~= nil then			
 		if gestureMode == GestureMode.Spells and (not (g_isPregame or isInMenu or isGesturesDisabled or isInGestureCooldown or not mounts.isWalking())) then
@@ -1111,26 +1193,48 @@ function on_post_calculate_stereo_view_offset(device, view_index, world_to_meter
 		-- end
 	end
 end
+
+local currentUserIndex = 0
+local currentMaxInput = 0
 	
 function on_xinput_get_state(retval, user_index, state)
 	local success, response = pcall(function()		
 		if isFP and (not isInCutscene()) then
+			-- when using multiple controllers, skip inactive one
+            if user_index ~= currentUserIndex then
+                local maxInput = math.max(
+                    math.abs(state.Gamepad.sThumbLX),
+                    math.abs(state.Gamepad.sThumbLY),
+                    math.abs(state.Gamepad.sThumbRX),
+                    math.abs(state.Gamepad.sThumbRY),
+                    math.abs(state.Gamepad.bLeftTrigger * 128),
+                    math.abs(state.Gamepad.bRightTrigger * 128)
+                )
+                if maxInput > currentMaxInput or state.Gamepad.wButtons ~= 0 then
+                    currentMaxInput = maxInput
+                    currentUserIndex = user_index
+                else 
+                    return
+                end
+            end
 			local disableStickOverride = g_isPregame or isInMenu or mounts.isOnBroom() or (gestureMode == GestureMode.Spells and gesturesModule.isCastingSpell(pawn, "Spell_Wingardium"))
-			decoupledYawCurrentRot = input.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, locomotionMode, controlMode, g_isLeftHanded, snapAngle, smoothTurnSpeed, useSnapTurn, alphaDiff, disableStickOverride)
+			decoupledYawCurrentRot = input.handleInput(state, decoupledYawCurrentRot, isDecoupledYawDisabled, locomotionMode, controlMode, g_isLeftHanded, g_isFlightInvertY, snapAngle, smoothTurnSpeed, useSnapTurn, alphaDiff, disableStickOverride, mounts.isWalking())
 			
-			if gestureMode == GestureMode.Spells then
-				gesturesModule.handleInput(state, g_isLeftHanded)
+			if isUsingControllers then
+				if gestureMode == GestureMode.Spells then
+					gesturesModule.handleInput(state, g_isLeftHanded)
+				end
+				
+				if manualHideWand and not isWandDisabled and mounts.isWalking() then
+					wand.handleInput(pawn, state, g_isLeftHanded)
+				end
+				
+				if showHands then
+					hands.handleInput(state, wand.isVisible())	
+				end
+				
+				handleBrokenControllers(mounts.getMountPawn(pawn), state, g_isLeftHanded)
 			end
-			
-			if manualHideWand and not isWandDisabled and mounts.isWalking() then
-				wand.handleInput(pawn, state, g_isLeftHanded)
-			end
-			
-			if showHands then
-				hands.handleInput(state, wand.isVisible())	
-			end
-			
-			handleBrokenControllers(mounts.getMountPawn(pawn), state, g_isLeftHanded)	
 		end
 	end)
 	-- if success == false then
